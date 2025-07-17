@@ -1,0 +1,13 @@
+src/
+tests/
+examples/
+*.test.ts
+*.spec.ts
+tsconfig.json
+.eslintrc.*
+jest.config.*
+.github/
+.vscode/
+.idea/
+*.log
+coverage/
