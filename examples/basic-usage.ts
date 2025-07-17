@@ -54,16 +54,23 @@ async function getCovidTimeline(): Promise<void> {
     // Check if timeline data exists and handle the nested structure
     if (response.timeline && response.timeline.length > 0) {
       // Check if the timeline has the new nested structure with 'data' property
-      if (response.timeline[0].data) {
+      // Use type assertion to handle the different response structure
+      const firstItem = response.timeline[0] as any;
+      
+      if (firstItem && firstItem.data && Array.isArray(firstItem.data)) {
         // Handle the nested structure
-        const timelineData = response.timeline[0].data;
-        timelineData.forEach(point => {
-          console.log(`${point.date}: ${point.value.toFixed(4)}%`);
+        const timelineData = firstItem.data;
+        timelineData.forEach((point: any) => {
+          if (point && typeof point.value === 'number' && point.date) {
+            console.log(`${point.date}: ${point.value.toFixed(4)}%`);
+          }
         });
       } else {
         // Handle the original flat structure
         response.timeline.forEach(point => {
-          console.log(`${point.date}: ${point.value.toFixed(4)}%`);
+          if (point && typeof point.value === 'number' && point.date) {
+            console.log(`${point.date}: ${point.value.toFixed(4)}%`);
+          }
         });
       }
     } else {
