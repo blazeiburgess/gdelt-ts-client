@@ -120,6 +120,35 @@ describe('GdeltClient', () => {
       });
     });
     
+    it('should use default format when no format is specified', async () => {
+      // Create a client with a specific default format
+      const defaultFormatClient = new GdeltClient({
+        defaultFormat: EFormat.csv
+      });
+      
+      // Replace the axios instance's get method with our mock
+      (defaultFormatClient as any)._axiosInstance = { get: mockGet };
+      
+      // Reset the mock
+      mockGet.mockClear();
+      
+      // Call a method without specifying format
+      try {
+        await (defaultFormatClient as any)._makeRequest({
+          query: 'test query'
+        });
+      } catch (e) {
+        // Ignore errors, we just want to check the params
+      }
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: 'test query',
+          format: EFormat.csv
+        })
+      });
+    });
+    
     it('should include all optional parameters when provided', async () => {
       await client.getArticles({ 
         query: 'test query',
@@ -206,6 +235,54 @@ describe('GdeltClient', () => {
     });
   });
   
+  describe('_makeRequest', () => {
+    beforeEach(() => {
+      // Reset the mock before each test
+      mockGet.mockClear();
+    });
+    
+    it('should throw an error when API returns a string response', async () => {
+      // Mock the get method to return a string response
+      mockGet.mockResolvedValue({
+        data: 'API Error: Invalid query'
+      });
+      
+      // Expect the method to throw an error with the string response
+      await expect(client.getArticles({ query: 'test query' }))
+        .rejects.toThrow('API Error: Invalid query');
+    });
+    
+    it('should add status property when missing from response', async () => {
+      // Mock the get method to return a response without status
+      mockGet.mockResolvedValue({
+        data: { articles: [{ title: 'Test Article' }] }
+      });
+      
+      const result = await client.getArticles({ query: 'test query' });
+      
+      // Expect the status to be added with value 'ok'
+      expect(result.status).toBe('ok');
+    });
+    
+    it('should add count property for image responses when missing', async () => {
+      // Mock the get method to return an image response without count
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok', 
+          images: [
+            { url: 'https://example.com/image1.jpg' },
+            { url: 'https://example.com/image2.jpg' }
+          ]
+        }
+      });
+      
+      const result = await client.getImages({ query: 'test query' });
+      
+      // Expect the count to be added with the length of the images array
+      expect(result.count).toBe(2);
+    });
+  });
+
   describe('API methods', () => {
     beforeEach(() => {
       // Reset the mock before each test
