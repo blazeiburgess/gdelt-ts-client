@@ -160,7 +160,7 @@ export class GdeltClient {
    * @returns A promise that resolves to the API response
    * @private
    */
-  private async _makeRequest<T>(params: IGdeltApiBaseParams): Promise<T> {
+  private async _makeRequest<T extends object>(params: IGdeltApiBaseParams): Promise<T> {
     const queryParams = this._buildQueryParams(params);
     let retries = 0;
 
@@ -188,24 +188,22 @@ export class GdeltClient {
     }
     
     // Add missing properties to the response
-    const data = response.data as any;
+    const data = response.data;
     
-    // Add status if missing
-    if (!data.status) {
-      data.status = 'ok';
-    }
+    // Add status if missing using nullish coalescing operator
+    (data as Record<string, unknown>)['status'] ??= 'ok';
     
     // Add count property for article list responses
-    if (data.articles && !data.count) {
-      data.count = data.articles.length;
+    if ('articles' in data && !('count' in data)) {
+      (data as Record<string, unknown>)['count'] = (data as { articles: unknown[] }).articles.length;
     }
     
     // Add count property for image collage responses
-    if (data.images && !data.count) {
-      data.count = data.images.length;
+    if ('images' in data && !('count' in data)) {
+      (data as Record<string, unknown>)['count'] = (data as { images: unknown[] }).images.length;
     }
     
-    return data as T;
+    return data;
   }
 
   /**
