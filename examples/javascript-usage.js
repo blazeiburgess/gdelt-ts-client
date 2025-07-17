@@ -116,6 +116,9 @@ async function differentModesExample() {
     
     console.log('\nEconomy news tone distribution:');
     // Handle the actual tone chart response structure
+    let averageTone = 0; // Initialize with a default value
+    let hasToneData = false;
+    
     if (toneResponse.tonechart && Array.isArray(toneResponse.tonechart)) {
       // Calculate average tone
       let totalTone = 0;
@@ -128,7 +131,8 @@ async function differentModesExample() {
       });
       
       if (totalArticles > 0) {
-        const averageTone = totalTone / totalArticles;
+        averageTone = totalTone / totalArticles;
+        hasToneData = true;
         console.log(`Average tone: ${averageTone.toFixed(2)}`);
       } else {
         console.log('No tone data available');
@@ -147,7 +151,8 @@ async function differentModesExample() {
       });
       
       if (totalArticles > 0) {
-        const averageTone = totalTone / totalArticles;
+        averageTone = totalTone / totalArticles;
+        hasToneData = true;
         console.log(`Average tone: ${averageTone.toFixed(2)}`);
       } else {
         console.log('No tone data available');
@@ -157,12 +162,14 @@ async function differentModesExample() {
     }
     
     // Determine if coverage is generally positive or negative
-    if (averageTone > 2) {
-      console.log('Coverage is generally positive');
-    } else if (averageTone < -2) {
-      console.log('Coverage is generally negative');
-    } else {
-      console.log('Coverage is generally neutral');
+    if (hasToneData) {
+      if (averageTone > 2) {
+        console.log('Coverage is generally positive');
+      } else if (averageTone < -2) {
+        console.log('Coverage is generally negative');
+      } else {
+        console.log('Coverage is generally neutral');
+      }
     }
   } catch (error) {
     console.error('Error in different modes example:', error);
