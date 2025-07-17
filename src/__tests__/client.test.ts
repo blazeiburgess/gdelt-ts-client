@@ -1,5 +1,5 @@
 import { GdeltClient, EFormat, EMode, ETimespanUnit, ETranslation, ESort, ETimeZoom } from '../';
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 
 // Mock axios to avoid making actual API calls during tests
 jest.mock('axios');
@@ -21,7 +21,7 @@ describe('GdeltClient', () => {
     // Mock axios.create to return an object with a get method
     mockedAxios.create.mockReturnValue({
       get: mockGet
-    } as any);
+    } as unknown as AxiosInstance);
     
     // Create a new client instance after setting up mocks
     client = new GdeltClient();
@@ -30,10 +30,20 @@ describe('GdeltClient', () => {
   describe('constructor', () => {
     it('should create a client with default configuration', () => {
       expect(client).toBeInstanceOf(GdeltClient);
-      expect(mockedAxios.create).toHaveBeenCalledWith(expect.objectContaining({
-        baseURL: 'https://api.gdeltproject.org/api/v2/doc/doc',
-        timeout: 30000
-      }));
+      
+      // Use mock.calls directly to avoid unbound method error
+      const mockCalls = mockedAxios.create.mock.calls;
+      expect(mockCalls.length).toBeGreaterThan(0);
+      
+      // Check the configuration
+      const configCall = mockCalls[0];
+      expect(configCall).toBeDefined();
+      
+      // Use optional chaining to safely access properties
+      const config = configCall?.[0];
+      expect(config).toBeDefined();
+      expect(config?.baseURL).toBe('https://api.gdeltproject.org/api/v2/doc/doc');
+      expect(config?.timeout).toBe(30000);
     });
 
     it('should create a client with custom configuration', () => {
@@ -45,10 +55,20 @@ describe('GdeltClient', () => {
       });
 
       expect(customClient).toBeInstanceOf(GdeltClient);
-      expect(mockedAxios.create).toHaveBeenCalledWith(expect.objectContaining({
-        baseURL: 'https://custom-api.example.com',
-        timeout: 5000
-      }));
+      
+      // Use mock.calls directly to avoid unbound method error
+      const mockCalls = mockedAxios.create.mock.calls;
+      expect(mockCalls.length).toBeGreaterThan(1);
+      
+      // Check the configuration
+      const configCall = mockCalls[mockCalls.length - 1];
+      expect(configCall).toBeDefined();
+      
+      // Use optional chaining to safely access properties
+      const config = configCall?.[0];
+      expect(config).toBeDefined();
+      expect(config?.baseURL).toBe('https://custom-api.example.com');
+      expect(config?.timeout).toBe(5000);
     });
   });
 
@@ -68,25 +88,36 @@ describe('GdeltClient', () => {
 
   describe('_buildQueryParams', () => {
     // Create a custom method to test _buildQueryParams without overriding format
-    const testBuildQueryParams = async (params: any) => {
+    const testBuildQueryParams = async (params: Record<string, unknown>): Promise<void> => {
       // Create a custom client for this test
       const testClient = new GdeltClient();
       
       // Create a custom method that doesn't override format
-      const customMethod = async (params: any) => {
-        return (testClient as any)._makeRequest({
+      const customMethod = async (params: Record<string, unknown>): Promise<unknown> => {
+        // Access private method using indexing to avoid naming convention errors
+        const makeRequestFn = (testClient as unknown as Record<string, Function>)['_makeRequest'];
+        
+        // Check if makeRequestFn is defined
+        if (!makeRequestFn) {
+          throw new Error('_makeRequest method not found on testClient');
+        }
+        
+        // Add await to satisfy require-await rule
+        return await makeRequestFn.call(testClient, {
           ...params
         });
       };
       
       // Replace the axios instance's get method with our mock
-      (testClient as any)._axiosInstance = { get: mockGet };
+      // Access private property using indexing to avoid naming convention errors
+      (testClient as unknown as Record<string, unknown>)['_axiosInstance'] = { get: mockGet };
       
       // Call the custom method
       try {
         await customMethod(params);
-      } catch (e) {
+      } catch {
         // Ignore errors, we just want to check the params
+        // No variable needed since we're not using it
       }
     };
     
@@ -127,18 +158,28 @@ describe('GdeltClient', () => {
       });
       
       // Replace the axios instance's get method with our mock
-      (defaultFormatClient as any)._axiosInstance = { get: mockGet };
+      // Access private property using indexing to avoid naming convention errors
+      (defaultFormatClient as unknown as Record<string, unknown>)['_axiosInstance'] = { get: mockGet };
       
       // Reset the mock
       mockGet.mockClear();
       
       // Call a method without specifying format
       try {
-        await (defaultFormatClient as any)._makeRequest({
+        // Access private method using indexing to avoid naming convention errors
+        const makeRequestFn = (defaultFormatClient as unknown as Record<string, Function>)['_makeRequest'];
+        
+        // Check if makeRequestFn is defined
+        if (!makeRequestFn) {
+          throw new Error('_makeRequest method not found on defaultFormatClient');
+        }
+        
+        await makeRequestFn.call(defaultFormatClient, {
           query: 'test query'
         });
-      } catch (e) {
+      } catch {
         // Ignore errors, we just want to check the params
+        // No variable needed since we're not using it
       }
       
       expect(mockGet).toHaveBeenCalledWith('', {
