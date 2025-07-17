@@ -9,3 +9,8 @@ yarn-error.log*
 .pnp.js
 
 .vscode/*
+.idea
+*.sw[op]
+
+.output.txt
+errors.txt
