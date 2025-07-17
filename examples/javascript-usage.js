@@ -91,18 +91,26 @@ async function differentModesExample() {
     
     console.log('Economy news timeline:');
     // Handle the nested timeline data structure
-    if (timelineResponse.timeline && Array.isArray(timelineResponse.timeline) && 
+    if (timelineResponse && timelineResponse.timeline && Array.isArray(timelineResponse.timeline) && 
         timelineResponse.timeline.length > 0 && timelineResponse.timeline[0].data) {
       // Extract the data points from the nested structure
       const timelineData = timelineResponse.timeline[0].data;
       // Print the first 3 data points
-      timelineData.slice(0, 3).forEach(point => {
-        console.log(`${point.date}: ${point.value.toFixed(4)}%`);
-      });
-    } else if (timelineResponse.timeline) {
+      if (Array.isArray(timelineData)) {
+        timelineData.slice(0, 3).forEach(point => {
+          if (point && point.date && point.value !== undefined) {
+            console.log(`${point.date}: ${point.value.toFixed(4)}%`);
+          }
+        });
+      } else {
+        console.log('Timeline data is not in the expected format');
+      }
+    } else if (timelineResponse && timelineResponse.timeline && Array.isArray(timelineResponse.timeline)) {
       // Print the first 3 data points (original structure)
       timelineResponse.timeline.slice(0, 3).forEach(point => {
-        console.log(`${point.date}: ${point.value.toFixed(4)}%`);
+        if (point && point.date && point.value !== undefined) {
+          console.log(`${point.date}: ${point.value.toFixed(4)}%`);
+        }
       });
     } else {
       console.log('No timeline data available');
@@ -119,7 +127,8 @@ async function differentModesExample() {
     let averageTone = 0; // Initialize with a default value
     let hasToneData = false;
     
-    if (toneResponse.tonechart && Array.isArray(toneResponse.tonechart)) {
+    // Check if toneResponse exists and has the expected structure
+    if (toneResponse && toneResponse.tonechart && Array.isArray(toneResponse.tonechart)) {
       // Calculate average tone
       let totalTone = 0;
       let totalArticles = 0;
@@ -137,7 +146,7 @@ async function differentModesExample() {
       } else {
         console.log('No tone data available');
       }
-    } else if (toneResponse.bins && Array.isArray(toneResponse.bins)) {
+    } else if (toneResponse && toneResponse.bins && Array.isArray(toneResponse.bins)) {
       // Original structure
       // Calculate average tone
       let totalTone = 0;
