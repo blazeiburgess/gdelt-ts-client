@@ -7,6 +7,8 @@
 
 /* eslint-disable @typescript-eslint/naming-convention */
 
+import { COUNTRY_ABBREVIATIONS, LANGUAGE_ABBREVIATIONS, THEME_ABBREVIATIONS } from '../constants';
+
 // ===== COUNTRY LOOKUPS =====
 
 /**
@@ -543,18 +545,7 @@ export function isValidLanguage(value: string): boolean {
 export function searchCountries(partialName: string): Array<{code: CountryCode; name: string}> {
   const searchTerm = partialName.toLowerCase();
   
-  // Handle common abbreviations and variations
-  const abbreviations: Record<string, string[]> = {
-    'usa': ['united states', 'america'],
-    'uk': ['united kingdom', 'britain'],
-    'uae': ['united arab emirates', 'emirates'],
-    'ussr': ['russia', 'soviet'],
-    'prc': ['china', 'peoples republic'],
-    'dprk': ['north korea', 'korea'],
-    'rok': ['south korea', 'korea']
-  };
-  
-  const searchTerms = abbreviations[searchTerm] || [searchTerm];
+  const searchTerms = COUNTRY_ABBREVIATIONS[searchTerm] || [searchTerm];
   
   return Object.entries(CountryLookup)
     .filter(([, name]) => {
@@ -573,8 +564,17 @@ export function searchCountries(partialName: string): Array<{code: CountryCode; 
  */
 export function searchLanguages(partialName: string): Array<{code: LanguageCode; name: string}> {
   const searchTerm = partialName.toLowerCase();
+  
+  const searchTerms = LANGUAGE_ABBREVIATIONS[searchTerm] || [searchTerm];
+  
   return Object.entries(LanguageLookup)
-    .filter(([, name]) => name.toLowerCase().includes(searchTerm))
+    .filter(([, name]) => {
+      const lowercaseName = name.toLowerCase();
+      return searchTerms.some(term => 
+        lowercaseName.includes(term) || 
+        term.split(' ').some(word => lowercaseName.includes(word))
+      );
+    })
     .map(([code, name]) => ({ code: code as LanguageCode, name }))
     .slice(0, 10); // Limit to 10 results
 }
@@ -787,10 +787,15 @@ export type ImageWebTag =
  */
 export function searchThemes(keyword: string): GKGTheme[] {
   const searchTerm = keyword.toLowerCase();
+  
+  const searchTerms = THEME_ABBREVIATIONS[searchTerm] || [searchTerm];
+  
   return (Object.keys(ThemeDescriptions) as GKGTheme[])
     .filter(theme => 
-      theme.toLowerCase().includes(searchTerm) || 
-      ThemeDescriptions[theme]?.toLowerCase().includes(searchTerm)
+      searchTerms.some(term => 
+        theme.toLowerCase().includes(term) || 
+        ThemeDescriptions[theme]?.toLowerCase().includes(term)
+      )
     )
     .slice(0, 10); // Limit to 10 results
 }
