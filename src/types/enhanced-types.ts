@@ -4,6 +4,9 @@
 
 /* eslint-disable @typescript-eslint/naming-convention */
 
+// Import lookup types
+import type { CountryCode, CountryName, LanguageCode, LanguageName, GKGTheme, ImageTag, ImageWebTag } from './lookups';
+
 /**
  * Mode constants using const assertions for better IntelliSense and extensibility
  */
@@ -102,26 +105,69 @@ export type ToneQuery =
 export type DomainQuery = `domain:${string}` | `domainis:${string}`;
 
 /**
- * Template literal types for source queries
+ * Template literal types for country queries using lookup types
  */
-export type SourceQuery = 
-  | `sourcecountry:${string}`
-  | `sourcelang:${string}`;
+export type CountryQuery = `sourcecountry:${CountryCode | CountryName}`;
 
 /**
- * Template literal types for image queries
+ * Template literal types for language queries using lookup types
  */
-export type ImageQuery = 
-  | `imagetag:"${string}"`
-  | `imagewebtag:"${string}"`
-  | `imageocrmeta:"${string}"`
+export type LanguageQuery = `sourcelang:${LanguageCode | LanguageName}`;
+
+/**
+ * Template literal types for source queries (combined)
+ */
+export type SourceQuery = CountryQuery | LanguageQuery;
+
+/**
+ * Template literal types for image tag queries using lookup types
+ */
+export type ImageTagQuery = `imagetag:"${ImageTag}"`;
+
+/**
+ * Template literal types for image web tag queries using lookup types
+ */
+export type ImageWebTagQuery = `imagewebtag:"${ImageWebTag}"`;
+
+/**
+ * Template literal types for image OCR queries (allows any string)
+ */
+export type ImageOCRQuery = `imageocrmeta:"${string}"`;
+
+/**
+ * Template literal types for image face queries
+ */
+export type ImageFaceQuery = 
   | `imagefacetone>${number}`
   | `imagefacetone<${number}`
+  | `imagefacetone=${number}`;
+
+/**
+ * Template literal types for image face count queries
+ */
+export type ImageFaceCountQuery = 
   | `imagenumfaces>${number}`
   | `imagenumfaces<${number}`
-  | `imagenumfaces=${number}`
+  | `imagenumfaces=${number}`;
+
+/**
+ * Template literal types for image web count queries
+ */
+export type ImageWebCountQuery = 
   | `imagewebcount>${number}`
-  | `imagewebcount<${number}`;
+  | `imagewebcount<${number}`
+  | `imagewebcount=${number}`;
+
+/**
+ * Template literal types for image queries (combined)
+ */
+export type ImageQuery = 
+  | ImageTagQuery
+  | ImageWebTagQuery
+  | ImageOCRQuery
+  | ImageFaceQuery
+  | ImageFaceCountQuery
+  | ImageWebCountQuery;
 
 /**
  * Template literal types for proximity queries
@@ -134,9 +180,9 @@ export type ProximityQuery = `near${number}:"${string}"`;
 export type RepeatQuery = `repeat${number}:"${string}"`;
 
 /**
- * Template literal types for theme queries
+ * Template literal types for theme queries using lookup types
  */
-export type ThemeQuery = `theme:${string}`;
+export type ThemeQuery = `theme:${GKGTheme}`;
 
 // ===== UTILITY TYPES FOR COMMON OPERATIONS =====
 
