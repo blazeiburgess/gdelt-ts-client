@@ -800,7 +800,7 @@ describe('GdeltClient', () => {
       expect(mockGet).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle all configuration options together', async () => {
+    it('should handle all configuration options together', () => {
       const fullyConfiguredClient = new GdeltClient({
         baseUrl: 'https://custom-api.example.com',
         defaultFormat: EFormat.json,
@@ -819,7 +819,9 @@ describe('GdeltClient', () => {
       expect(config?.baseURL).toBe('https://custom-api.example.com');
       expect(config?.timeout).toBe(10000);
       expect(config?.headers).toEqual({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         'Accept': 'application/json',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         'Content-Type': 'application/json'
       });
     });
@@ -920,7 +922,7 @@ describe('GdeltClient', () => {
       });
     });
 
-    it('should handle all timespan units', async () => {
+    it('should handle all timespan units', () => {
       const timespanTests = [
         { value: 30, unit: ETimespanUnit.minutes, expected: '30min' },
         { value: 12, unit: ETimespanUnit.hours, expected: '12h' },
@@ -1016,8 +1018,8 @@ describe('GdeltClient', () => {
       
       expect(typeof result.articles[0]?.tone).toBe('number');
       expect(typeof result.articles[0]?.seendate).toBe('string');
-      expect(typeof (result as any).metadata?.timestamp).toBe('number');
-      expect(typeof (result as any).metadata?.version).toBe('string');
+      expect(typeof (result as unknown as { metadata: { timestamp: number; version: string } }).metadata?.timestamp).toBe('number');
+      expect(typeof (result as unknown as { metadata: { timestamp: number; version: string } }).metadata?.version).toBe('string');
     });
   });
 });
