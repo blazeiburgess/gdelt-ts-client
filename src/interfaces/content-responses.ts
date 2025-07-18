@@ -139,12 +139,26 @@ export interface IArticleWithContent extends IArticle {
   /**
    * Full article content
    */
-  content?: IArticleContent;
+  content: IArticleContent | null;
 
   /**
-   * Content fetch result
+   * Content error information
    */
-  contentResult: IArticleContentResult;
+  contentError?: {
+    message: string;
+    code: string;
+    statusCode?: number;
+    retryCount: number;
+  };
+
+  /**
+   * Content fetch timing information
+   */
+  contentTiming?: {
+    fetchTime: number;
+    parseTime: number;
+    totalTime: number;
+  };
 }
 
 export interface IArticleListWithContentResponse extends IGdeltApiResponse {
@@ -163,14 +177,19 @@ export interface IArticleListWithContentResponse extends IGdeltApiResponse {
    */
   contentStats: {
     /**
+     * Total number of articles
+     */
+    totalArticles: number;
+
+    /**
      * Number of articles with successfully fetched content
      */
-    successCount: number;
+    successfulFetches: number;
 
     /**
      * Number of articles with failed content fetching
      */
-    failureCount: number;
+    failedFetches: number;
 
     /**
      * Average fetch time per article (ms)
@@ -178,9 +197,19 @@ export interface IArticleListWithContentResponse extends IGdeltApiResponse {
     averageFetchTime: number;
 
     /**
+     * Average parse time per article (ms)
+     */
+    averageParseTime: number;
+
+    /**
      * Total time spent fetching content (ms)
      */
     totalFetchTime: number;
+
+    /**
+     * Total words extracted from all articles
+     */
+    totalWords: number;
 
     /**
      * Most common failure reasons
