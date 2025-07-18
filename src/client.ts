@@ -18,6 +18,23 @@ import {
   IToneChartResponse,
   IWordCloudResponse
 } from './interfaces/api-responses';
+import {
+  TimespanUnit,
+  TimespanUnitType,
+  TimespanString,
+  ComplexQuery,
+  isValidTimespan,
+  isValidDateTime,
+  isValidMaxRecords,
+  isValidTimelineSmooth
+} from './types/enhanced-types';
+import {
+  QueryBuilder,
+  ArticleQueryBuilder,
+  ImageQueryBuilder,
+  QueryHelpers
+} from './types/query-builder';
+import { TypeGuards } from './types/type-guards';
 
 /**
  * GDELT API Client
@@ -275,12 +292,41 @@ export class GdeltClient {
    * @param params - The API parameters
    * @returns A promise that resolves to the article list response
    */
-  public async getArticles(params: IGdeltApiBaseParams): Promise<IArticleListResponse> {
-    return this._makeRequest<IArticleListResponse>({
-      ...params,
+  public async getArticles(params: IGdeltApiBaseParams): Promise<IArticleListResponse>;
+  /**
+   * Gets a list of articles that match the query (simplified overload)
+   * @param query - The search query string
+   * @param options - Optional parameters
+   * @returns A promise that resolves to the article list response
+   */
+  public async getArticles(query: string | ComplexQuery, options?: Partial<IGdeltApiBaseParams>): Promise<IArticleListResponse>;
+  public async getArticles(
+    paramsOrQuery: IGdeltApiBaseParams | string | ComplexQuery,
+    options?: Partial<IGdeltApiBaseParams>
+  ): Promise<IArticleListResponse> {
+    let finalParams: IGdeltApiBaseParams;
+    
+    if (typeof paramsOrQuery === 'string') {
+      finalParams = {
+        query: paramsOrQuery,
+        ...options
+      };
+    } else if (typeof paramsOrQuery === 'object' && 'query' in paramsOrQuery) {
+      finalParams = paramsOrQuery;
+    } else {
+      throw new Error('Invalid parameters: expected object with query property or query string');
+    }
+    
+    // Use enhanced validation
+    this._validateEnhancedParams(finalParams);
+    
+    const response = await this._makeRequest<IArticleListResponse>({
+      ...finalParams,
       mode: EMode.articleList,
       format: EFormat.json
     });
+    
+    return this._transformAndValidateResponse(response, TypeGuards.isArticleListResponse);
   }
 
   /**
@@ -288,12 +334,41 @@ export class GdeltClient {
    * @param params - The API parameters
    * @returns A promise that resolves to the image collage response
    */
-  public async getImages(params: IGdeltApiBaseParams): Promise<IImageCollageResponse> {
-    return this._makeRequest<IImageCollageResponse>({
-      ...params,
+  public async getImages(params: IGdeltApiBaseParams): Promise<IImageCollageResponse>;
+  /**
+   * Gets a list of images that match the query (simplified overload)
+   * @param query - The search query string
+   * @param options - Optional parameters
+   * @returns A promise that resolves to the image collage response
+   */
+  public async getImages(query: string | ComplexQuery, options?: Partial<IGdeltApiBaseParams>): Promise<IImageCollageResponse>;
+  public async getImages(
+    paramsOrQuery: IGdeltApiBaseParams | string | ComplexQuery,
+    options?: Partial<IGdeltApiBaseParams>
+  ): Promise<IImageCollageResponse> {
+    let finalParams: IGdeltApiBaseParams;
+    
+    if (typeof paramsOrQuery === 'string') {
+      finalParams = {
+        query: paramsOrQuery,
+        ...options
+      };
+    } else if (typeof paramsOrQuery === 'object' && 'query' in paramsOrQuery) {
+      finalParams = paramsOrQuery;
+    } else {
+      throw new Error('Invalid parameters: expected object with query property or query string');
+    }
+    
+    // Use enhanced validation
+    this._validateEnhancedParams(finalParams);
+    
+    const response = await this._makeRequest<IImageCollageResponse>({
+      ...finalParams,
       mode: EMode.imageCollageInfo,
       format: EFormat.json
     });
+    
+    return this._transformAndValidateResponse(response, TypeGuards.isImageCollageResponse);
   }
 
   /**
@@ -301,12 +376,48 @@ export class GdeltClient {
    * @param params - The API parameters
    * @returns A promise that resolves to the timeline response
    */
-  public async getTimeline(params: IGdeltApiBaseParams): Promise<ITimelineResponse> {
-    return this._makeRequest<ITimelineResponse>({
-      ...params,
+  public async getTimeline(params: IGdeltApiBaseParams): Promise<ITimelineResponse>;
+  /**
+   * Gets a timeline of news coverage volume that matches the query (simplified overload)
+   * @param query - The search query string
+   * @param timespanOrOptions - Timespan string or full options object
+   * @returns A promise that resolves to the timeline response
+   */
+  public async getTimeline(query: string | ComplexQuery, timespanOrOptions?: TimespanString | Partial<IGdeltApiBaseParams>): Promise<ITimelineResponse>;
+  public async getTimeline(
+    paramsOrQuery: IGdeltApiBaseParams | string | ComplexQuery,
+    timespanOrOptions?: TimespanString | Partial<IGdeltApiBaseParams>
+  ): Promise<ITimelineResponse> {
+    let finalParams: IGdeltApiBaseParams;
+    
+    if (typeof paramsOrQuery === 'string') {
+      if (timespanOrOptions && typeof timespanOrOptions === 'string') {
+        finalParams = {
+          query: paramsOrQuery,
+          timespan: timespanOrOptions
+        };
+      } else {
+        finalParams = {
+          query: paramsOrQuery,
+          ...timespanOrOptions
+        };
+      }
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
+      finalParams = paramsOrQuery;
+    } else {
+      throw new Error('Invalid parameters: expected object with query property or query string');
+    }
+    
+    // Use enhanced validation
+    this._validateEnhancedParams(finalParams);
+    
+    const response = await this._makeRequest<ITimelineResponse>({
+      ...finalParams,
       mode: EMode.timelineVolume,
       format: EFormat.json
     });
+    
+    return this._transformAndValidateResponse(response, TypeGuards.isTimelineResponse);
   }
 
   /**
@@ -314,12 +425,40 @@ export class GdeltClient {
    * @param params - The API parameters
    * @returns A promise that resolves to the timeline response
    */
-  public async getTimelineWithArticles(params: IGdeltApiBaseParams): Promise<ITimelineResponse> {
-    return this._makeRequest<ITimelineResponse>({
-      ...params,
+  public async getTimelineWithArticles(params: IGdeltApiBaseParams): Promise<ITimelineResponse>;
+  /**
+   * Gets a timeline of news coverage volume with article info that matches the query (simplified overload)
+   * @param query - The search query string
+   * @param options - Optional parameters
+   * @returns A promise that resolves to the timeline response
+   */
+  public async getTimelineWithArticles(query: string | ComplexQuery, options?: Partial<IGdeltApiBaseParams>): Promise<ITimelineResponse>;
+  public async getTimelineWithArticles(
+    paramsOrQuery: IGdeltApiBaseParams | string | ComplexQuery,
+    options?: Partial<IGdeltApiBaseParams>
+  ): Promise<ITimelineResponse> {
+    let finalParams: IGdeltApiBaseParams;
+    
+    if (typeof paramsOrQuery === 'string') {
+      finalParams = {
+        query: paramsOrQuery,
+        ...options
+      };
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
+      finalParams = paramsOrQuery;
+    } else {
+      throw new Error('Invalid parameters: expected object with query property or query string');
+    }
+    
+    this._validateEnhancedParams(finalParams);
+    
+    const response = await this._makeRequest<ITimelineResponse>({
+      ...finalParams,
       mode: EMode.timelineVolumeInfo,
       format: EFormat.json
     });
+    
+    return this._transformAndValidateResponse(response, TypeGuards.isTimelineResponse);
   }
 
   /**
@@ -353,12 +492,40 @@ export class GdeltClient {
    * @param params - The API parameters
    * @returns A promise that resolves to the timeline response
    */
-  public async getTimelineTone(params: IGdeltApiBaseParams): Promise<ITimelineResponse> {
-    return this._makeRequest<ITimelineResponse>({
-      ...params,
+  public async getTimelineTone(params: IGdeltApiBaseParams): Promise<ITimelineResponse>;
+  /**
+   * Gets a timeline of average tone of news coverage that matches the query (simplified overload)
+   * @param query - The search query string
+   * @param options - Optional parameters
+   * @returns A promise that resolves to the timeline response
+   */
+  public async getTimelineTone(query: string | ComplexQuery, options?: Partial<IGdeltApiBaseParams>): Promise<ITimelineResponse>;
+  public async getTimelineTone(
+    paramsOrQuery: IGdeltApiBaseParams | string | ComplexQuery,
+    options?: Partial<IGdeltApiBaseParams>
+  ): Promise<ITimelineResponse> {
+    let finalParams: IGdeltApiBaseParams;
+    
+    if (typeof paramsOrQuery === 'string') {
+      finalParams = {
+        query: paramsOrQuery,
+        ...options
+      };
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
+      finalParams = paramsOrQuery;
+    } else {
+      throw new Error('Invalid parameters: expected object with query property or query string');
+    }
+    
+    this._validateEnhancedParams(finalParams);
+    
+    const response = await this._makeRequest<ITimelineResponse>({
+      ...finalParams,
       mode: EMode.timelineTone,
       format: EFormat.json
     });
+    
+    return this._transformAndValidateResponse(response, TypeGuards.isTimelineResponse);
   }
 
   /**
@@ -366,21 +533,49 @@ export class GdeltClient {
    * @param params - The API parameters
    * @returns A promise that resolves to the tone chart response
    */
-  public async getToneChart(params: IGdeltApiBaseParams): Promise<IToneChartResponse> {
+  public async getToneChart(params: IGdeltApiBaseParams): Promise<IToneChartResponse>;
+  /**
+   * Gets a tone chart of news coverage that matches the query (simplified overload)
+   * @param query - The search query string
+   * @param options - Optional parameters
+   * @returns A promise that resolves to the tone chart response
+   */
+  public async getToneChart(query: string | ComplexQuery, options?: Partial<IGdeltApiBaseParams>): Promise<IToneChartResponse>;
+  public async getToneChart(
+    paramsOrQuery: IGdeltApiBaseParams | string | ComplexQuery,
+    options?: Partial<IGdeltApiBaseParams>
+  ): Promise<IToneChartResponse> {
+    let finalParams: IGdeltApiBaseParams;
+    
+    if (typeof paramsOrQuery === 'string') {
+      finalParams = {
+        query: paramsOrQuery,
+        ...options
+      };
+    } else if (typeof paramsOrQuery === 'object' && 'query' in paramsOrQuery) {
+      finalParams = paramsOrQuery;
+    } else {
+      throw new Error('Invalid parameters: expected object with query property or query string');
+    }
+    
+    // Use enhanced validation
+    this._validateEnhancedParams(finalParams);
+    
     const response = await this._makeRequest<IToneChartResponse>({
-      ...params,
+      ...finalParams,
       mode: EMode.toneChart,
       format: EFormat.json
     });
     
+    // Enhanced validation with type guard
+    const validatedResponse = this._transformAndValidateResponse(response, TypeGuards.isToneChartResponse);
+    
     // Ensure the response has the expected structure
-    if (!response.tonechart) {
-      // If the API returns an error message as a string, it will be caught in _makeRequest
-      // This handles the case where the API returns a valid JSON response but without the expected structure
+    if (!validatedResponse.tonechart) {
       throw new Error('Invalid response format from GDELT API: missing tonechart property');
     }
     
-    return response;
+    return validatedResponse;
   }
 
   /**
@@ -415,7 +610,149 @@ export class GdeltClient {
    * @param unit - The timespan unit
    * @returns The timespan string
    */
-  public createTimespan(value: number, unit: ETimespanUnit): string {
-    return this._createTimespanString({ value, unit });
+  public createTimespan(value: number, unit: ETimespanUnit): string;
+  /**
+   * Creates a timespan parameter with enhanced validation
+   * @param value - The timespan value
+   * @param unit - The enhanced timespan unit
+   * @returns The timespan string
+   */
+  public createTimespan(value: number, unit: TimespanUnitType): TimespanString;
+  public createTimespan(value: number, unit: ETimespanUnit | TimespanUnitType): string | TimespanString {
+    const timespanStr = this._createTimespanString({ value, unit: unit as ETimespanUnit });
+    
+    // If using enhanced types, validate the result
+    const enhancedUnits = Object.values(TimespanUnit);
+    if (enhancedUnits.includes(unit)) {
+      if (!isValidTimespan(timespanStr)) {
+        throw new Error(`Invalid timespan format: ${timespanStr}`);
+      }
+      return timespanStr as TimespanString;
+    }
+    
+    return timespanStr;
+  }
+
+  // ===== ENHANCED UTILITY METHODS =====
+
+  /**
+   * Create a new query builder for constructing complex queries
+   */
+  public query(): QueryBuilder {
+    return QueryHelpers.createQuery();
+  }
+
+  /**
+   * Create a specialized query builder for article searches
+   */
+  public articleQuery(): ArticleQueryBuilder {
+    return QueryHelpers.createArticleQuery();
+  }
+
+  /**
+   * Create a specialized query builder for image searches
+   */
+  public imageQuery(): ImageQueryBuilder {
+    return QueryHelpers.createImageQuery();
+  }
+
+  /**
+   * Validate query string format and complexity
+   */
+  public validateQuery(query: string): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    
+    if (!query || query.trim().length === 0) {
+      errors.push('Query cannot be empty');
+    }
+    
+    if (!QueryHelpers.isValidQuery(query)) {
+      errors.push('Query has unbalanced parentheses');
+    }
+    
+    if (!QueryHelpers.hasBalancedQuotes(query)) {
+      errors.push('Query has unbalanced quotes');
+    }
+    
+    const complexity = QueryHelpers.getQueryComplexity(query);
+    if (complexity > 50) {
+      errors.push(`Query complexity (${complexity}) may be too high and could cause timeouts`);
+    }
+    
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Get suggested optimizations for a query
+   */
+  public getQueryOptimizations(query: string): string[] {
+    const suggestions: string[] = [];
+    const complexity = QueryHelpers.getQueryComplexity(query);
+    
+    if (complexity > 30) {
+      suggestions.push('Consider breaking this complex query into smaller, more specific queries');
+    }
+    
+    if (query.includes(' OR ') && query.split(' OR ').length > 10) {
+      suggestions.push('Consider reducing the number of OR terms for better performance');
+    }
+    
+    if (!query.includes('timespan:') && !query.includes('startdatetime:')) {
+      suggestions.push('Consider adding a timespan constraint to limit the search scope');
+    }
+    
+    if (query.length > 500) {
+      suggestions.push('Very long queries may hit URL length limits in some environments');
+    }
+    
+    return suggestions;
+  }
+
+  // ===== ENHANCED TYPE VALIDATION =====
+
+  /**
+   * Enhanced parameter validation using new type guards
+   */
+  private _validateEnhancedParams(params: IGdeltApiBaseParams): void {
+    // Run base validation first
+    this._validateParams(params);
+    
+    // Enhanced validations using new type guards
+    if (params.timespan && !isValidTimespan(params.timespan)) {
+      throw new Error(`Invalid timespan format: ${String(params.timespan)}. Must be like "1d", "2h", "30min", "1w", "3m"`);
+    }
+    
+    if (params.startdatetime && !isValidDateTime(params.startdatetime)) {
+      throw new Error(`Invalid startdatetime format: ${String(params.startdatetime)}. Must be YYYYMMDDHHMMSS`);
+    }
+    
+    if (params.enddatetime && !isValidDateTime(params.enddatetime)) {
+      throw new Error(`Invalid enddatetime format: ${String(params.enddatetime)}. Must be YYYYMMDDHHMMSS`);
+    }
+    
+    if (params.maxrecords !== undefined && !isValidMaxRecords(params.maxrecords)) {
+      throw new Error(`Invalid maxrecords: ${String(params.maxrecords)}. Must be an integer between 1 and 250`);
+    }
+    
+    if (params.timelinesmooth !== undefined && !isValidTimelineSmooth(params.timelinesmooth)) {
+      throw new Error(`Invalid timelinesmooth: ${String(params.timelinesmooth)}. Must be an integer between 1 and 30`);
+    }
+  }
+
+  /**
+   * Enhanced response validation and transformation
+   */
+  private _transformAndValidateResponse<T extends object>(data: unknown, typeGuard?: (response: unknown) => response is T): T {
+    const transformedData = this._transformResponse<T>(data);
+    
+    // If a type guard is provided, use it for additional validation (only warn, don't throw)
+    if (typeGuard && !typeGuard(transformedData)) {
+      console.warn('Response validation warning: unexpected response structure');
+    }
+    
+    return transformedData;
   }
 }
