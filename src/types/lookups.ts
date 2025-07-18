@@ -545,7 +545,7 @@ export function isValidLanguage(value: string): boolean {
 export function searchCountries(partialName: string): Array<{code: CountryCode; name: string}> {
   const searchTerm = partialName.toLowerCase();
   
-  const searchTerms = COUNTRY_ABBREVIATIONS[searchTerm] || [searchTerm];
+  const searchTerms = COUNTRY_ABBREVIATIONS[searchTerm] ?? [searchTerm];
   
   return Object.entries(CountryLookup)
     .filter(([, name]) => {
@@ -565,7 +565,7 @@ export function searchCountries(partialName: string): Array<{code: CountryCode; 
 export function searchLanguages(partialName: string): Array<{code: LanguageCode; name: string}> {
   const searchTerm = partialName.toLowerCase();
   
-  const searchTerms = LANGUAGE_ABBREVIATIONS[searchTerm] || [searchTerm];
+  const searchTerms = LANGUAGE_ABBREVIATIONS[searchTerm] ?? [searchTerm];
   
   return Object.entries(LanguageLookup)
     .filter(([, name]) => {
@@ -789,7 +789,20 @@ export function searchThemes(keyword: string): GKGTheme[] {
   const searchTerm = keyword.toLowerCase();
   
   // Include both the original search term and any abbreviation expansions
-  const searchTerms = [searchTerm, ...(THEME_ABBREVIATIONS[searchTerm] ?? [])];
+  const searchTerms = [searchTerm];
+  
+  // Add expansions if the search term is an abbreviation key
+  if (THEME_ABBREVIATIONS[searchTerm]) {
+    searchTerms.push(...THEME_ABBREVIATIONS[searchTerm]);
+  }
+  
+  // Also check if the search term matches any of the expansion values
+  for (const [key, values] of Object.entries(THEME_ABBREVIATIONS)) {
+    if (values.includes(searchTerm)) {
+      searchTerms.push(key);
+      searchTerms.push(...values);
+    }
+  }
   
   return (Object.keys(ThemeDescriptions) as GKGTheme[])
     .filter(theme => 
