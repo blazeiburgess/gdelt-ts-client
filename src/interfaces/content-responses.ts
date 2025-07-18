@@ -80,7 +80,7 @@ export interface IContentMetadata {
   /**
    * Content extraction method used
    */
-  extractionMethod: 'readability' | 'article-parser' | 'fallback';
+  extractionMethod: 'readability' | 'fallback';
 
   /**
    * Content extraction confidence (0-1)
