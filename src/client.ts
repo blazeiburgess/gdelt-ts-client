@@ -193,6 +193,11 @@ export class GdeltClient {
       transformedData['count'] = transformedData["images"].length;
     }
 
+    // Add count property for timeline responses
+    if ('timeline' in transformedData && Array.isArray(transformedData["timeline"]) && !('count' in transformedData)) {
+      transformedData['count'] = transformedData["timeline"].length;
+    }
+
     return transformedData as T;
   }
 
