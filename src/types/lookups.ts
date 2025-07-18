@@ -788,7 +788,8 @@ export type ImageWebTag =
 export function searchThemes(keyword: string): GKGTheme[] {
   const searchTerm = keyword.toLowerCase();
   
-  const searchTerms = THEME_ABBREVIATIONS[searchTerm] || [searchTerm];
+  // Include both the original search term and any abbreviation expansions
+  const searchTerms = [searchTerm, ...(THEME_ABBREVIATIONS[searchTerm] ?? [])];
   
   return (Object.keys(ThemeDescriptions) as GKGTheme[])
     .filter(theme => 
