@@ -11,23 +11,26 @@ describe('Client Lookup Validation', () => {
   let client: GdeltClient;
 
   beforeEach(() => {
-    client = new GdeltClient();
-  });
-
-  describe('Country lookup validation', () => {
-    it('should validate valid country codes in queries', async () => {
-      const mockResponse = {
+    // Reset all mocks before each test
+    jest.clearAllMocks();
+    
+    // Set up axios mock
+    const axios = require('axios');
+    axios.create.mockReturnValue({
+      get: jest.fn().mockResolvedValue({
         data: {
           articles: [],
           status: 'ok',
           count: 0
         }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
+      })
+    });
+    
+    client = new GdeltClient();
+  });
 
+  describe('Country lookup validation', () => {
+    it('should validate valid country codes in queries', async () => {
       await expect(client.getArticles('sourcecountry:US test')).resolves.toBeDefined();
     });
 
@@ -36,12 +39,8 @@ describe('Client Lookup Validation', () => {
     });
 
     it('should provide suggestions for invalid countries', async () => {
-      try {
-        await client.getArticles('sourcecountry:USA test');
-      } catch (error) {
-        expect((error as Error).message).toContain('Invalid country in query: "USA"');
-        expect((error as Error).message).toContain('Did you mean');
-      }
+      await expect(client.getArticles('sourcecountry:USA test'))
+        .rejects.toThrow(/Invalid country in query: "USA".*Did you mean/);
     });
 
     it('should handle queries with no country suggestions', async () => {
@@ -51,18 +50,6 @@ describe('Client Lookup Validation', () => {
 
   describe('Language lookup validation', () => {
     it('should validate valid language codes in queries', async () => {
-      const mockResponse = {
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
       await expect(client.getArticles('sourcelang:eng test')).resolves.toBeDefined();
     });
 
@@ -71,12 +58,8 @@ describe('Client Lookup Validation', () => {
     });
 
     it('should provide suggestions for invalid languages', async () => {
-      try {
-        await client.getArticles('sourcelang:en test');
-      } catch (error) {
-        expect((error as Error).message).toContain('Invalid language in query: "en"');
-        expect((error as Error).message).toContain('Did you mean');
-      }
+      await expect(client.getArticles('sourcelang:en test'))
+        .rejects.toThrow(/Invalid language in query: "en".*Did you mean/);
     });
 
     it('should handle queries with no language suggestions', async () => {
@@ -86,18 +69,6 @@ describe('Client Lookup Validation', () => {
 
   describe('Theme lookup validation', () => {
     it('should validate valid theme codes in queries', async () => {
-      const mockResponse = {
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
       await expect(client.getArticles('theme:TAX_FNCACT test')).resolves.toBeDefined();
     });
 
@@ -106,12 +77,8 @@ describe('Client Lookup Validation', () => {
     });
 
     it('should provide suggestions for invalid themes', async () => {
-      try {
-        await client.getArticles('theme:TAX test');
-      } catch (error) {
-        expect((error as Error).message).toContain('Invalid theme in query: "TAX"');
-        expect((error as Error).message).toContain('Did you mean');
-      }
+      await expect(client.getArticles('theme:TAX test'))
+        .rejects.toThrow(/Invalid theme in query: "TAX".*Did you mean/);
     });
 
     it('should handle queries with no theme suggestions', async () => {
