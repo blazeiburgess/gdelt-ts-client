@@ -687,7 +687,7 @@ describe('GdeltClient', () => {
     it('should handle timeout scenarios', async () => {
       const timeoutError = new Error('timeout of 30000ms exceeded');
       timeoutError.name = 'AxiosError';
-      (timeoutError as any).code = 'ECONNABORTED';
+      (timeoutError as unknown as { code: string }).code = 'ECONNABORTED';
       
       mockGet.mockRejectedValue(timeoutError);
       
