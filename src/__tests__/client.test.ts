@@ -14,7 +14,7 @@ describe('GdeltClient', () => {
     mockedAxios.create.mockClear();
     
     // Create a mock get function with default response
-    mockGet = jest.fn().mockImplementation(async (url, options) => {
+    mockGet = jest.fn().mockImplementation(async (_url, options) => {
       // Check if this is a tone chart request
       if (options?.params?.mode === 'tonechart') {
         return Promise.resolve({
@@ -346,9 +346,26 @@ describe('GdeltClient', () => {
       // Reset the mock before each test
       mockGet.mockClear();
       
-      // Reset the mock to return a successful response by default
-      mockGet.mockResolvedValue({
-        data: { status: 'ok', articles: [], count: 0 }
+      // Reset the mock to use the same implementation as in the main beforeEach
+      mockGet.mockImplementation(async (_url, options) => {
+        // Check if this is a tone chart request
+        if (options?.params?.mode === 'tonechart') {
+          return Promise.resolve({
+            data: { 
+              status: 'ok', 
+              tonechart: [
+                { bin: -10, count: 5, toparts: [] },
+                { bin: 0, count: 10, toparts: [] },
+                { bin: 10, count: 3, toparts: [] }
+              ]
+            }
+          });
+        }
+        
+        // Default response for other requests
+        return Promise.resolve({
+          data: { status: 'ok', articles: [], count: 0 }
+        });
       });
     });
 
@@ -474,6 +491,71 @@ describe('GdeltClient', () => {
           format: EFormat.json
         })
       });
+    });
+  });
+
+  describe('parameter validation', () => {
+    beforeEach(() => {
+      // Reset the mock before each test
+      mockGet.mockClear();
+    });
+
+    it('should throw error for empty query', async () => {
+      await expect(client.getArticles({ query: '' }))
+        .rejects.toThrow('Query parameter is required and must be a non-empty string');
+    });
+
+    it('should throw error for undefined query', async () => {
+      await expect(client.getArticles({ query: undefined as unknown as string }))
+        .rejects.toThrow('Query parameter is required and must be a non-empty string');
+    });
+
+    it('should throw error for maxrecords out of range', async () => {
+      await expect(client.getArticles({ query: 'test', maxrecords: 0 }))
+        .rejects.toThrow('maxrecords must be an integer between 1 and 250');
+      
+      await expect(client.getArticles({ query: 'test', maxrecords: 251 }))
+        .rejects.toThrow('maxrecords must be an integer between 1 and 250');
+    });
+
+    it('should throw error for invalid timelinesmooth', async () => {
+      await expect(client.getTimeline({ query: 'test', timelinesmooth: 0 }))
+        .rejects.toThrow('timelinesmooth must be an integer between 1 and 30');
+      
+      await expect(client.getTimeline({ query: 'test', timelinesmooth: 31 }))
+        .rejects.toThrow('timelinesmooth must be an integer between 1 and 30');
+    });
+
+    it('should throw error for invalid datetime format', async () => {
+      await expect(client.getArticles({ query: 'test', startdatetime: '2025010112' }))
+        .rejects.toThrow('startdatetime must be in YYYYMMDDHHMMSS format (14 digits)');
+      
+      await expect(client.getArticles({ query: 'test', enddatetime: 'invalid' }))
+        .rejects.toThrow('enddatetime must be in YYYYMMDDHHMMSS format (14 digits)');
+    });
+
+    it('should throw error for invalid timespan format', async () => {
+      await expect(client.getArticles({ query: 'test', timespan: '1day' }))
+        .rejects.toThrow('timespan must be in format like "1d", "2h", "30min", "1w", "3m"');
+      
+      await expect(client.getArticles({ query: 'test', timespan: 'invalid' }))
+        .rejects.toThrow('timespan must be in format like "1d", "2h", "30min", "1w", "3m"');
+    });
+
+    it('should accept valid parameters', async () => {
+      // Mock successful response
+      mockGet.mockResolvedValue({
+        data: { status: 'ok', articles: [], count: 0 }
+      });
+
+      await expect(client.getArticles({ 
+        query: 'test query',
+        maxrecords: 100,
+        timelinesmooth: 5,
+        startdatetime: '20250101120000',
+        enddatetime: '20250102120000',
+        timespan: '1d'
+      })).resolves.not.toThrow();
     });
   });
 });
