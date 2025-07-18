@@ -2,6 +2,8 @@
  * Content scraper utility with robots.txt compliance
  */
 
+/* eslint-disable @typescript-eslint/naming-convention */
+
 import axios, { AxiosResponse } from 'axios';
 import { RateLimiter } from './rate-limiter';
 import { IRobotsInfo } from '../interfaces/content-fetcher';
@@ -55,6 +57,7 @@ export class ContentScraper {
       this._robotsCache.set(normalizedDomain, robotsInfo);
       return robotsInfo.allowed;
     } catch (error) {
+      console.warn(`Failed to fetch robots.txt for ${domain}:`, error);
       // If we can't fetch robots.txt, assume allowed but cache for shorter time
       const robotsInfo: IRobotsInfo = {
         allowed: true,
@@ -161,6 +164,7 @@ export class ContentScraper {
         )
       };
     } catch (error) {
+      console.warn(`Failed to fetch robots.txt for ${domain}:`, error);
       // If robots.txt is not accessible, assume allowed
       return {
         allowed: true,
