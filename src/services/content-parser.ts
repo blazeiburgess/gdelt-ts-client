@@ -240,7 +240,8 @@ export class ContentParserService {
    * @private
    */
   private _stripHtml(html: string): string {
-    const dom = new JSDOM(html);
+    // Create a new JSDOM instance with the HTML content
+    const dom = new JSDOM(`<body>${html}</body>`);
     return dom.window.document.body.textContent ?? '';
   }
 
