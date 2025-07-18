@@ -542,8 +542,28 @@ export function isValidLanguage(value: string): boolean {
  */
 export function searchCountries(partialName: string): Array<{code: CountryCode; name: string}> {
   const searchTerm = partialName.toLowerCase();
+  
+  // Handle common abbreviations and variations
+  const abbreviations: Record<string, string[]> = {
+    'usa': ['united states', 'america'],
+    'uk': ['united kingdom', 'britain'],
+    'uae': ['united arab emirates', 'emirates'],
+    'ussr': ['russia', 'soviet'],
+    'prc': ['china', 'peoples republic'],
+    'dprk': ['north korea', 'korea'],
+    'rok': ['south korea', 'korea']
+  };
+  
+  const searchTerms = abbreviations[searchTerm] || [searchTerm];
+  
   return Object.entries(CountryLookup)
-    .filter(([, name]) => name.toLowerCase().includes(searchTerm))
+    .filter(([, name]) => {
+      const lowercaseName = name.toLowerCase();
+      return searchTerms.some(term => 
+        lowercaseName.includes(term) || 
+        term.split(' ').some(word => lowercaseName.includes(word))
+      );
+    })
     .map(([code, name]) => ({ code: code as CountryCode, name }))
     .slice(0, 10); // Limit to 10 results
 }
