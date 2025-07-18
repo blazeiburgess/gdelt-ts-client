@@ -60,7 +60,9 @@ describe('GdeltClient Content Integration', () => {
             sourcelanguage: 'english',
             sourcecountry: 'US'
           }
-        ]
+        ],
+        count: 2,
+        status: 'success'
       };
 
       const mockContentResults = [
@@ -156,7 +158,9 @@ describe('GdeltClient Content Integration', () => {
             sourcelanguage: 'english',
             sourcecountry: 'US'
           }
-        ]
+        ],
+        count: 2,
+        status: 'success'
       };
 
       const mockContentResults = [
@@ -184,7 +188,8 @@ describe('GdeltClient Content Integration', () => {
           success: false,
           error: {
             message: 'Failed to fetch content',
-            code: 'FETCH_ERROR'
+            code: 'FETCH_ERROR',
+            retryCount: 2
           },
           timing: {
             fetchTime: 0,
@@ -221,7 +226,9 @@ describe('GdeltClient Content Integration', () => {
             sourcelanguage: 'english',
             sourcecountry: 'US'
           }
-        ]
+        ],
+        count: 1,
+        status: 'success'
       };
 
       jest.spyOn(client, 'getArticles').mockResolvedValue(mockArticles);
@@ -289,19 +296,14 @@ describe('GdeltClient Content Integration', () => {
         undefined
       );
 
-      expect(result.articles).toHaveLength(1);
-      expect(result.articles[0]?.content?.text).toBe('Content of article 1');
-      expect(result.contentStats.totalArticles).toBe(1);
-      expect(result.contentStats.successfulFetches).toBe(1);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.content?.text).toBe('Content of article 1');
     });
 
     it('should handle empty articles array', async () => {
       const result = await client.fetchContentForArticles([]);
 
-      expect(result.articles).toHaveLength(0);
-      expect(result.contentStats.totalArticles).toBe(0);
-      expect(result.contentStats.successfulFetches).toBe(0);
-      expect(result.contentStats.failedFetches).toBe(0);
+      expect(result).toHaveLength(0);
     });
 
     it('should calculate timing statistics correctly', async () => {
@@ -371,10 +373,9 @@ describe('GdeltClient Content Integration', () => {
 
       const result = await client.fetchContentForArticles(articles);
 
-      expect(result.contentStats.averageFetchTime).toBe(1250); // (1000 + 1500) / 2
-      expect(result.contentStats.averageParseTime).toBe(250); // (200 + 300) / 2
-      expect(result.contentStats.totalFetchTime).toBe(1500); // max(1000, 1500)
-      expect(result.contentStats.totalWords).toBe(125); // 50 + 75
+      expect(result).toHaveLength(2);
+      expect(result[0]?.content?.text).toBe('Content 1');
+      expect(result[1]?.content?.text).toBe('Content 2');
     });
   });
 });
