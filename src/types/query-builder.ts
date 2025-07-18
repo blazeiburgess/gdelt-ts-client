@@ -479,9 +479,12 @@ export function getQueryComplexity(query: string): number {
   complexity += (query.match(/\bNOT\b/g) || []).length * 1;
   
   // Special operators add complexity
-  complexity += (query.match(/\w+:/g) || []).length * 3;
-  complexity += (query.match(/near\d+:/g) || []).length * 4;
-  complexity += (query.match(/repeat\d+:/g) || []).length * 2;
+  const operatorPattern = /\b(?:domain|domainis|sourcecountry|sourcelang|theme|tone|toneabs|imagetag|imagewebtag|imageocrmeta|imagenumfaces|imagefacetone|imagewebcount):/g;
+  complexity += (query.match(operatorPattern) || []).length * 3;
+  
+  // Proximity and repeat operators
+  complexity += (query.match(/\bnear\d+:/g) || []).length * 4;
+  complexity += (query.match(/\brepeat\d+:/g) || []).length * 2;
   
   return complexity;
 }
