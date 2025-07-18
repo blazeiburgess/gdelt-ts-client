@@ -2,7 +2,7 @@
  * Content fetcher service with concurrent processing and retry logic
  */
 
-import axios, { AxiosInstance } from 'axios';
+// import axios from 'axios';
 import pLimit from 'p-limit';
 import { ContentScraper } from '../utils/content-scraper';
 import { ContentParserService } from './content-parser';
@@ -11,7 +11,6 @@ import { IArticleContentResult, IArticleContent } from '../interfaces/content-re
 import { mergeContentFetcherConfig } from '../config/content-fetcher-config';
 
 export class ContentFetcherService {
-  private readonly _axiosInstance: AxiosInstance;
   private readonly _contentScraper: ContentScraper;
   private readonly _contentParser: ContentParserService;
   private readonly _config: IContentFetcherConfig;
@@ -22,23 +21,13 @@ export class ContentFetcherService {
    */
   public constructor(config?: IContentFetcherConfig) {
     this._config = mergeContentFetcherConfig(config);
-    
-    // Initialize Axios instance
-    this._axiosInstance = axios.create({
-      timeout: this._config.timeout,
-      maxRedirects: this._config.maxRedirects,
-      headers: {
-        'User-Agent': this._config.userAgent,
-        ...this._config.customHeaders
-      }
-    });
 
     // Initialize content scraper
     this._contentScraper = new ContentScraper(
-      this._config.userAgent!,
-      this._config.timeout!,
-      this._config.maxRequestsPerSecond!,
-      this._config.maxRequestsPerMinute!
+      this._config.userAgent || 'Unofficial-GDELT-TS-Client/1.0.0',
+      this._config.timeout || 30000,
+      this._config.maxRequestsPerSecond || 1,
+      this._config.maxRequestsPerMinute || 30
     );
 
     // Initialize content parser
@@ -104,33 +93,45 @@ export class ContentFetcherService {
       
       parseTime = Date.now() - parseStartTime;
 
-      return {
+      const result: IArticleContentResult = {
         url,
         success: true,
-        content,
         timing: {
           fetchTime,
           parseTime,
           totalTime: Date.now() - startTime
         }
       };
+      
+      if (content) {
+        result.content = content;
+      }
+      
+      return result;
 
     } catch (error) {
-      return {
+      const result: IArticleContentResult = {
         url,
         success: false,
-        error: {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          code: this._getErrorCode(error),
-          statusCode: this._getStatusCode(error),
-          retryCount
-        },
         timing: {
           fetchTime,
           parseTime,
           totalTime: Date.now() - startTime
         }
       };
+      
+      const statusCode = this._getStatusCode(error);
+      result.error = {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        code: this._getErrorCode(error),
+        retryCount
+      };
+      
+      if (statusCode !== undefined) {
+        result.error.statusCode = statusCode;
+      }
+      
+      return result;
     }
   }
 
@@ -152,7 +153,7 @@ export class ContentFetcherService {
     const urlsByDomain = this._groupUrlsByDomain(urls);
     let completed = 0;
 
-    for (const [domain, domainUrls] of Object.entries(urlsByDomain)) {
+    for (const [, domainUrls] of Object.entries(urlsByDomain)) {
       // Process URLs for this domain with concurrency control
       const domainResults = await Promise.all(
         domainUrls.map(url => limit(async () => {
@@ -222,7 +223,7 @@ export class ContentFetcherService {
       
       if (retryCount < maxRetries && statusCode && retryableStatusCodes.includes(statusCode)) {
         retryCount++;
-        const delay = this._config.retryDelay || 1000;
+        const delay = 1000; // Default retry delay
         await this._delay(delay * retryCount); // Exponential backoff
         return this._fetchWithRetry(url, retryCount);
       }
