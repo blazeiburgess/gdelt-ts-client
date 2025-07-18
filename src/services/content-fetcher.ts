@@ -143,8 +143,6 @@ export class ContentFetcherService {
     urls: string[],
     options?: IFetchContentOptions
   ): Promise<IArticleContentResult[]> {
-    // const concurrencyLimit = options?.concurrencyLimit || this._config.concurrencyLimit || 5;
-    // const limit = pLimit(concurrencyLimit);
     const limit = async (fn: () => Promise<any>) => fn();
     const results: IArticleContentResult[] = [];
 
