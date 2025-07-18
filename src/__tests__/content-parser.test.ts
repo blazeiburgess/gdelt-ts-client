@@ -3,278 +3,537 @@
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
- 
 
 import { ContentParserService } from '../services/content-parser';
 
-// Mock jsdom
-jest.mock('jsdom', () => ({
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  JSDOM: jest.fn().mockImplementation(() => ({
-    window: {
-      document: {
-        querySelector: jest.fn().mockImplementation((selector) => {
-          if (selector === 'h1, .title, .headline, .article-title') {
-            return { textContent: 'Mock Title' };
-          }
-          if (selector === '.author, .byline, [rel="author"], .writer') {
-            return { textContent: 'Mock Author' };
-          }
-          if (selector === 'article') {
-            return { textContent: 'Mock text content' };
-          }
-          return null;
-        }),
-        querySelectorAll: jest.fn().mockImplementation((selector) => {
-          if (selector === 'p') {
-            return [{ textContent: 'Mock text content' }];
-          }
-          return [];
-        }),
-        body: { textContent: 'Mock text content' }
-      }
-    }
-  }))
-}));
+// HTML test fixtures
+const HTML_WITH_ARTICLE = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Article</title>
+  <meta property="og:title" content="OG Test Title">
+  <meta property="og:description" content="OG Test Description">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Twitter Test Title">
+  <meta property="article:author" content="Test Author">
+  <meta property="article:published_time" content="2023-01-01">
+  <link rel="canonical" href="https://example.com/canonical">
+</head>
+<body>
+  <article>
+    <h1>Test Article Heading</h1>
+    <div class="byline">By John Doe</div>
+    <p>This is a test paragraph with some content. It contains enough words to be considered valid content.</p>
+    <p>This is another paragraph with more content. The quick brown fox jumps over the lazy dog.</p>
+    <p>This is a third paragraph with even more content. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+  </article>
+</body>
+</html>
+`;
 
-// Mock @mozilla/readability
-jest.mock('@mozilla/readability', () => ({
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  Readability: jest.fn().mockImplementation(() => ({
-    parse: jest.fn().mockImplementation(() => ({
-      title: 'Mock Title',
-      byline: 'Mock Author',
-      content: '<p>Mock text content</p>',
-      textContent: 'Mock text content',
-      length: 500
-    }))
-  }))
-}));
+const HTML_WITH_PAYWALL = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Paywall Article</title>
+</head>
+<body>
+  <article>
+    <h1>Premium Content</h1>
+    <div class="paywall-message">
+      This content is behind a paywall. Subscription required to read this article.
+    </div>
+    <p>First paragraph preview...</p>
+  </article>
+</body>
+</html>
+`;
+
+const HTML_WITHOUT_ARTICLE = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>No Article</title>
+</head>
+<body>
+  <div class="content">
+    <h1 class="title">Test Title</h1>
+    <div class="author">By Jane Smith</div>
+    <p>This is a test paragraph in a div instead of an article.</p>
+    <p>This is another paragraph with more content.</p>
+  </div>
+</body>
+</html>
+`;
+
+const HTML_WITH_MINIMAL_CONTENT = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Minimal Content</title>
+</head>
+<body>
+  <p>Just a single short paragraph.</p>
+</body>
+</html>
+`;
+
+const HTML_WITH_DIFFERENT_LANGUAGE = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Spanish Article</title>
+</head>
+<body>
+  <article>
+    <h1>El Título del Artículo</h1>
+    <div class="autor">Por Juan Pérez</div>
+    <p>Este es un párrafo de prueba en español. El artículo contiene suficientes palabras para ser considerado válido.</p>
+    <p>Este es otro párrafo con más contenido en español. La rápida zorra marrón salta sobre el perro perezoso.</p>
+  </article>
+</body>
+</html>
+`;
 
 describe('ContentParserService', () => {
   let service: ContentParserService;
 
   beforeEach(() => {
-    // Reset mocks before each test
-    jest.clearAllMocks();
-    
     // Create a fresh instance for each test
     service = new ContentParserService();
-    
-    // Mock the _stripHtml method to return the expected text
-    (service as any)._stripHtml = jest.fn().mockReturnValue('Mock text content');
-    
-    // Mock other private methods
-    (service as any)._countWords = jest.fn().mockReturnValue(100);
-    (service as any)._detectLanguage = jest.fn().mockReturnValue('en');
-    (service as any)._extractDateFromMetadata = jest.fn().mockReturnValue('2023-01-01');
-    (service as any)._calculateQualityScore = jest.fn().mockReturnValue(0.8);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
   });
 
   describe('parseHTML', () => {
-    it('should parse HTML using readability when available', () => {
-      // Create a mock result for readability extraction
-      const mockResult = {
-        text: 'Mock text content',
-        title: 'Mock Title',
-        author: 'Mock Author',
-        publishDate: '2023-01-01',
-        language: 'en',
-        wordCount: 100,
-        metadata: {
-          extractionMethod: 'readability' as 'readability' | 'fallback',
-          extractionConfidence: 0.9,
-          openGraph: {},
-          twitterCard: {},
-          article: {},
-          canonicalUrl: ''
-        },
-        paywallDetected: false,
-        qualityScore: 0.8
-      };
-      
-      // Mock the parseHTML method directly
-      jest.spyOn(service, 'parseHTML').mockReturnValueOnce(mockResult);
-
-      const html = '<html><body><article><p>Test content</p></article></body></html>';
+    it('should parse HTML and extract content successfully', () => {
       const url = 'https://example.com/article';
+      const result = service.parseHTML(HTML_WITH_ARTICLE, url);
 
-      const result = service.parseHTML(html, url);
-
-      expect(result.text).toBe('Mock text content');
-      expect(result.title).toBe('Mock Title');
-      expect(result.author).toBe('Mock Author');
-      expect(result.wordCount).toBeGreaterThan(0);
-      expect(result.metadata.extractionMethod).toBe('readability');
-      expect(result.metadata.extractionConfidence).toBe(0.9);
+      expect(result).toBeDefined();
+      expect(result.text).toContain('This is a test paragraph');
+      expect(result.title).toContain('Test Article');
+      expect(result.author).toBeDefined();
+      expect(result.wordCount).toBeGreaterThan(20);
+      expect(result.metadata).toBeDefined();
+      expect(result.paywallDetected).toBe(false);
+      expect(result.qualityScore).toBeGreaterThan(0);
     });
 
-    it('should handle readability failure and fall back to heuristics', () => {
-      // Create a mock result for fallback extraction
-      const mockResult = {
-        text: 'Mock text content',
-        title: 'Mock Title',
-        author: 'Mock Author',
-        publishDate: '2023-01-01',
-        language: 'en',
-        wordCount: 100,
-        metadata: {
-          extractionMethod: 'fallback' as 'readability' | 'fallback',
-          extractionConfidence: 0.3,
-          openGraph: {},
-          twitterCard: {},
-          article: {},
-          canonicalUrl: ''
-        },
-        paywallDetected: false,
-        qualityScore: 0.5
-      };
-      
-      // Mock the parseHTML method directly
-      jest.spyOn(service, 'parseHTML').mockReturnValueOnce(mockResult);
+    it('should detect paywall content', () => {
+      const url = 'https://example.com/paywall-article';
+      const result = service.parseHTML(HTML_WITH_PAYWALL, url);
 
-      const html = '<html><body><article><p>Test content</p></article></body></html>';
-      const url = 'https://example.com/article';
-
-      const result = service.parseHTML(html, url);
-
-      expect(result.text).toBe('Mock text content');
-      expect(result.metadata.extractionMethod).toBe('fallback');
-      expect(result.metadata.extractionConfidence).toBe(0.3);
+      expect(result).toBeDefined();
+      expect(result.paywallDetected).toBe(true);
     });
 
-    it('should use fallback extraction when readability fails', () => {
-      // Create a mock result for fallback extraction
-      const mockResult = {
-        text: 'Mock text content',
-        title: 'Mock Title',
-        author: 'Mock Author',
-        publishDate: '2023-01-01',
-        language: 'en',
-        wordCount: 100,
-        metadata: {
-          extractionMethod: 'fallback' as 'readability' | 'fallback',
-          extractionConfidence: 0.3,
-          openGraph: {},
-          twitterCard: {},
-          article: {},
-          canonicalUrl: ''
-        },
-        paywallDetected: false,
-        qualityScore: 0.5
-      };
-      
-      // Mock the parseHTML method directly
-      jest.spyOn(service, 'parseHTML').mockReturnValueOnce(mockResult);
+    it('should extract content from non-article HTML using fallback methods', () => {
+      const url = 'https://example.com/no-article';
+      const result = service.parseHTML(HTML_WITHOUT_ARTICLE, url);
 
-      const html = '<html><body><article><p>Test content</p></article></body></html>';
-      const url = 'https://example.com/article';
-
-      const result = service.parseHTML(html, url);
-
-      expect(result.text).toBe('Mock text content');
+      expect(result).toBeDefined();
+      expect(result.text).toContain('This is a test paragraph');
+      expect(result.title).toContain('Test Title');
       expect(result.metadata.extractionMethod).toBe('fallback');
-      expect(result.metadata.extractionConfidence).toBe(0.3);
+    });
+
+    it('should handle minimal content', () => {
+      const url = 'https://example.com/minimal';
+      const result = service.parseHTML(HTML_WITH_MINIMAL_CONTENT, url);
+
+      expect(result).toBeDefined();
+      expect(result.text).toBeDefined();
+      expect(result.wordCount).toBeLessThan(10);
+      expect(result.qualityScore).toBeLessThan(0.5);
+    });
+
+    it('should handle non-English content', () => {
+      const url = 'https://example.com/spanish';
+      const result = service.parseHTML(HTML_WITH_DIFFERENT_LANGUAGE, url);
+
+      expect(result).toBeDefined();
+      expect(result.language).toBe('es');
     });
   });
 
   describe('detectPaywall', () => {
     it('should detect paywall indicators', () => {
-      const htmlWithPaywall = '<html><body><p>This is a paywall protected article</p></body></html>';
-      const result = service.detectPaywall(htmlWithPaywall);
-      expect(result).toBe(true);
-    });
-
-    it('should detect subscription required text', () => {
-      const htmlWithSubscription = '<html><body><p>Subscription required to read this article</p></body></html>';
-      const result = service.detectPaywall(htmlWithSubscription);
+      const result = service.detectPaywall(HTML_WITH_PAYWALL);
       expect(result).toBe(true);
     });
 
     it('should not detect paywall in normal content', () => {
-      const normalHtml = '<html><body><p>This is a normal article with no restrictions</p></body></html>';
-      const result = service.detectPaywall(normalHtml);
+      const result = service.detectPaywall(HTML_WITH_ARTICLE);
       expect(result).toBe(false);
+    });
+
+    it('should detect various paywall phrases', () => {
+      const paywallPhrases = [
+        '<p>This content is behind a paywall</p>',
+        '<div>Subscription required to continue reading</div>',
+        '<p>Subscribe to read the full article</p>',
+        '<div>This premium content requires a subscription</div>',
+        '<p>This is members only content</p>',
+        '<div>Please sign up to continue reading</div>',
+        '<p>Register to read more</p>',
+        '<div>Unlock this article by subscribing</div>',
+        '<p>This is a subscriber exclusive article</p>',
+        '<div>This is subscription-only content</div>'
+      ];
+
+      paywallPhrases.forEach(phrase => {
+        const html = `<html><body>${phrase}</body></html>`;
+        expect(service.detectPaywall(html)).toBe(true);
+      });
     });
   });
 
   describe('extractMetadata', () => {
     it('should extract Open Graph metadata', () => {
-      // Create a direct spy on the extractMetadata method
-      const mockMetadata = {
-        openGraph: {
-          'title': 'Test Title',
-          'description': 'Test Description'
-        },
-        twitterCard: {},
-        article: {},
-        canonicalUrl: 'https://example.com/canonical',
-        extractionMethod: 'fallback' as 'fallback' | 'readability',
-        extractionConfidence: 0.5
-      };
-      
-      // Mock the implementation for this test only
-      jest.spyOn(service, 'extractMetadata').mockReturnValueOnce(mockMetadata);
+      const metadata = service.extractMetadata(HTML_WITH_ARTICLE);
 
-      const html = '<html><head><meta property="og:title" content="Test Title"></head></html>';
-      const metadata = service.extractMetadata(html);
-
-      expect(metadata.openGraph?.['title']).toBe('Test Title');
-      expect(metadata.openGraph?.['description']).toBe('Test Description');
-      expect(metadata.canonicalUrl).toBe('https://example.com/canonical');
+      expect(metadata.openGraph).toBeDefined();
+      expect(metadata.openGraph?.['title']).toBe('OG Test Title');
+      expect(metadata.openGraph?.['description']).toBe('OG Test Description');
     });
 
     it('should extract Twitter Card metadata', () => {
-      // Create a direct spy on the extractMetadata method
-      const mockMetadata = {
-        openGraph: {},
-        twitterCard: {
-          'card': 'summary',
-          'title': 'Test Twitter Title'
-        },
-        article: {},
-        canonicalUrl: '',
-        extractionMethod: 'fallback' as 'fallback' | 'readability',
-        extractionConfidence: 0.5
-      };
-      
-      // Mock the implementation for this test only
-      jest.spyOn(service, 'extractMetadata').mockReturnValueOnce(mockMetadata);
+      const metadata = service.extractMetadata(HTML_WITH_ARTICLE);
 
-      const html = '<html><head><meta name="twitter:card" content="summary"></head></html>';
-      const metadata = service.extractMetadata(html);
-
+      expect(metadata.twitterCard).toBeDefined();
       expect(metadata.twitterCard?.['card']).toBe('summary');
-      expect(metadata.twitterCard?.['title']).toBe('Test Twitter Title');
+      expect(metadata.twitterCard?.['title']).toBe('Twitter Test Title');
     });
 
     it('should extract article metadata', () => {
-      // Create a direct spy on the extractMetadata method
-      const mockMetadata = {
-        openGraph: {},
-        twitterCard: {},
-        article: {
-          'author': 'Test Author',
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          'published_time': '2023-01-01'
-        },
+      const metadata = service.extractMetadata(HTML_WITH_ARTICLE);
+
+      expect(metadata.article).toBeDefined();
+      expect(metadata.article?.['author']).toBe('Test Author');
+      expect(metadata.article?.['published_time']).toBe('2023-01-01');
+    });
+
+    it('should extract canonical URL', () => {
+      const metadata = service.extractMetadata(HTML_WITH_ARTICLE);
+
+      expect(metadata.canonicalUrl).toBe('https://example.com/canonical');
+    });
+
+    it('should handle HTML without metadata', () => {
+      const html = '<html><head></head><body><p>No metadata here</p></body></html>';
+      const metadata = service.extractMetadata(html);
+
+      expect(metadata).toBeDefined();
+      expect(Object.keys(metadata.openGraph ?? {})).toHaveLength(0);
+      expect(Object.keys(metadata.twitterCard ?? {})).toHaveLength(0);
+      expect(Object.keys(metadata.article ?? {})).toHaveLength(0);
+      expect(metadata.canonicalUrl).toBe('');
+    });
+  });
+
+  describe('_stripHtml', () => {
+    it('should strip HTML tags from content', () => {
+      const html = '<p>This is <strong>bold</strong> and <em>italic</em> text.</p>';
+      const result = (service as any)._stripHtml(html);
+
+      expect(result).toBe('This is bold and italic text.');
+    });
+
+    it('should handle empty HTML', () => {
+      const result = (service as any)._stripHtml('');
+      expect(result).toBe('');
+    });
+
+    it('should handle HTML with only tags', () => {
+      const result = (service as any)._stripHtml('<div><span></span></div>');
+      expect(result).toBe('');
+    });
+  });
+
+  describe('_countWords', () => {
+    it('should count words in text', () => {
+      const text = 'This is a sample text with ten words in it.';
+      const result = (service as any)._countWords(text);
+
+      expect(result).toBe(10);
+    });
+
+    it('should handle empty text', () => {
+      const result = (service as any)._countWords('');
+      expect(result).toBe(0);
+    });
+
+    it('should handle text with extra whitespace', () => {
+      const text = '  This   has  weird   spacing  ';
+      const result = (service as any)._countWords(text);
+
+      expect(result).toBe(4);
+    });
+  });
+
+  describe('_detectLanguage', () => {
+    it('should detect English text', () => {
+      const text = 'This is a sample text in English with enough words to detect the language properly. The quick brown fox jumps over the lazy dog.';
+      const result = (service as any)._detectLanguage(text);
+
+      expect(result).toBe('en');
+    });
+
+    it('should detect Spanish text', () => {
+      const text = 'Este es un texto de ejemplo en español con suficientes palabras para detectar el idioma correctamente. El zorro marrón rápido salta sobre el perro perezoso.';
+      const result = (service as any)._detectLanguage(text);
+
+      expect(result).toBe('es');
+    });
+
+    it('should return undefined for short text', () => {
+      const text = 'Short text';
+      const result = (service as any)._detectLanguage(text);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined for text without language indicators', () => {
+      const text = '12345 67890 !@#$% ^&*()';
+      const result = (service as any)._detectLanguage(text);
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('_extractDateFromMetadata', () => {
+    it('should extract published_time from article metadata', () => {
+      const metadata = {
+        article: {} as Record<string, string>,
+        openGraph: {} as Record<string, string>,
+        twitterCard: {} as Record<string, string>,
         canonicalUrl: '',
         extractionMethod: 'fallback' as 'fallback' | 'readability',
         extractionConfidence: 0.5
       };
       
-      // Mock the implementation for this test only
-      jest.spyOn(service, 'extractMetadata').mockReturnValueOnce(mockMetadata);
+      // Using Record<string, string> type to avoid ESLint naming convention issues
+      metadata.article['published_time'] = '2023-01-01';
 
-      const html = '<html><head><meta property="article:author" content="Test Author"></head></html>';
-      const metadata = service.extractMetadata(html);
+      const result = (service as any)._extractDateFromMetadata(metadata);
+      expect(result).toBe('2023-01-01');
+    });
 
-      expect(metadata.article?.['author']).toBe('Test Author');
-      expect(metadata.article?.['published_time']).toBe('2023-01-01');
+    it('should extract published_time from Open Graph metadata if not in article', () => {
+      const metadata = {
+        article: {} as Record<string, string>,
+        openGraph: {} as Record<string, string>,
+        twitterCard: {} as Record<string, string>,
+        canonicalUrl: '',
+        extractionMethod: 'fallback' as 'fallback' | 'readability',
+        extractionConfidence: 0.5
+      };
+      
+      // Using Record<string, string> type to avoid ESLint naming convention issues
+      metadata.openGraph['published_time'] = '2023-01-02';
+
+      const result = (service as any)._extractDateFromMetadata(metadata);
+      expect(result).toBe('2023-01-02');
+    });
+
+    it('should extract modified_time if published_time not available', () => {
+      const metadata = {
+        article: {} as Record<string, string>,
+        openGraph: {} as Record<string, string>,
+        twitterCard: {} as Record<string, string>,
+        canonicalUrl: '',
+        extractionMethod: 'fallback' as 'fallback' | 'readability',
+        extractionConfidence: 0.5
+      };
+      
+      // Using Record<string, string> type to avoid ESLint naming convention issues
+      metadata.article['modified_time'] = '2023-01-03';
+
+      const result = (service as any)._extractDateFromMetadata(metadata);
+      expect(result).toBe('2023-01-03');
+    });
+
+    it('should extract updated_time from Open Graph if other dates not available', () => {
+      const metadata = {
+        article: {} as Record<string, string>,
+        openGraph: {} as Record<string, string>,
+        twitterCard: {} as Record<string, string>,
+        canonicalUrl: '',
+        extractionMethod: 'fallback' as 'fallback' | 'readability',
+        extractionConfidence: 0.5
+      };
+      
+      // Using Record<string, string> type to avoid ESLint naming convention issues
+      metadata.openGraph['updated_time'] = '2023-01-04';
+
+      const result = (service as any)._extractDateFromMetadata(metadata);
+      expect(result).toBe('2023-01-04');
+    });
+
+    it('should return undefined if no date available', () => {
+      const metadata = {
+        article: {},
+        openGraph: {},
+        twitterCard: {},
+        canonicalUrl: '',
+        extractionMethod: 'fallback' as 'fallback' | 'readability',
+        extractionConfidence: 0.5
+      };
+
+      const result = (service as any)._extractDateFromMetadata(metadata);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('_calculateQualityScore', () => {
+    it('should calculate higher score for readability extraction', () => {
+      const content = '<p>This is a test paragraph with some content.</p><p>This is another paragraph with more content.</p>';
+      const metadata = {
+        extractionMethod: 'readability' as 'readability' | 'fallback',
+        extractionConfidence: 0.9,
+        openGraph: { 'title': 'Test' },
+        article: { 'author': 'Test Author' },
+        canonicalUrl: 'https://example.com',
+        twitterCard: {}
+      };
+
+      const result = (service as any)._calculateQualityScore(content, metadata);
+      expect(result).toBeGreaterThan(0.5);
+    });
+
+    it('should calculate lower score for fallback extraction', () => {
+      const content = '<p>This is a test paragraph with some content.</p>';
+      const metadata = {
+        extractionMethod: 'fallback' as 'readability' | 'fallback',
+        extractionConfidence: 0.3,
+        openGraph: {},
+        article: {},
+        canonicalUrl: '',
+        twitterCard: {}
+      };
+
+      const result = (service as any)._calculateQualityScore(content, metadata);
+      expect(result).toBeLessThan(0.5);
+    });
+
+    it('should increase score for longer content', () => {
+      const shortContent = '<p>Short content.</p>';
+      const longContent = '<p>' + 'Long content. '.repeat(100) + '</p>';
+      
+      const metadata = {
+        extractionMethod: 'fallback' as 'readability' | 'fallback',
+        extractionConfidence: 0.5,
+        openGraph: {},
+        article: {},
+        canonicalUrl: '',
+        twitterCard: {}
+      };
+
+      const shortScore = (service as any)._calculateQualityScore(shortContent, metadata);
+      const longScore = (service as any)._calculateQualityScore(longContent, metadata);
+
+      expect(longScore).toBeGreaterThan(shortScore);
+    });
+
+    it('should increase score for more complete metadata', () => {
+      const content = '<p>Test content</p>';
+      
+      const minimalMetadata = {
+        extractionMethod: 'fallback' as 'readability' | 'fallback',
+        extractionConfidence: 0.5,
+        openGraph: {},
+        article: {},
+        canonicalUrl: '',
+        twitterCard: {}
+      };
+
+      const completeMetadata = {
+        extractionMethod: 'fallback' as 'readability' | 'fallback',
+        extractionConfidence: 0.5,
+        openGraph: { 'title': 'Test' },
+        article: { 'author': 'Test Author' },
+        canonicalUrl: 'https://example.com',
+        twitterCard: {}
+      };
+
+      const minimalScore = (service as any)._calculateQualityScore(content, minimalMetadata);
+      const completeScore = (service as any)._calculateQualityScore(content, completeMetadata);
+
+      expect(completeScore).toBeGreaterThan(minimalScore);
+    });
+
+    it('should cap score at 1.0', () => {
+      const content = '<p>' + 'Very long content. '.repeat(200) + '</p>';
+      const metadata = {
+        extractionMethod: 'readability' as 'readability' | 'fallback',
+        extractionConfidence: 0.9,
+        openGraph: { 'title': 'Test' },
+        article: { 'author': 'Test Author' },
+        canonicalUrl: 'https://example.com',
+        twitterCard: { 'card': 'summary' }
+      };
+
+      const result = (service as any)._calculateQualityScore(content, metadata);
+      expect(result).toBeLessThanOrEqual(1.0);
+    });
+  });
+
+  describe('_tryReadability', () => {
+    it('should return null for very short content', () => {
+      const html = '<html><body><p>Too short</p></body></html>';
+      const url = 'https://example.com/short';
+      
+      const result = (service as any)._tryReadability(html, url);
+      expect(result).toBeNull();
+    });
+
+    it('should extract content using Readability', () => {
+      const url = 'https://example.com/article';
+      const result = (service as any)._tryReadability(HTML_WITH_ARTICLE, url);
+
+      expect(result).not.toBeNull();
+      expect(result?.metadata.extractionMethod).toBe('readability');
+      expect(result?.metadata.extractionConfidence).toBe(0.9);
+    });
+  });
+
+  describe('_extractUsingHeuristics', () => {
+    it('should extract content from article element', () => {
+      const url = 'https://example.com/article';
+      const result = (service as any)._extractUsingHeuristics(HTML_WITH_ARTICLE, url);
+
+      expect(result).toBeDefined();
+      expect(result.text).toContain('This is a test paragraph');
+      expect(result.title).toContain('Test Article Heading');
+      expect(result.metadata.extractionMethod).toBe('fallback');
+    });
+
+    it('should extract content from div when no article present', () => {
+      const url = 'https://example.com/no-article';
+      const result = (service as any)._extractUsingHeuristics(HTML_WITHOUT_ARTICLE, url);
+
+      expect(result).toBeDefined();
+      expect(result.text).toContain('This is a test paragraph');
+      expect(result.title).toContain('Test Title');
+    });
+
+    it('should extract content from paragraphs when no container found', () => {
+      const html = `
+        <html>
+        <head><title>No Container</title></head>
+        <body>
+          <h1>Test Heading</h1>
+          <p>This is paragraph one with enough text to be considered.</p>
+          <p>This is paragraph two with more content to extract.</p>
+        </body>
+        </html>
+      `;
+      const url = 'https://example.com/no-container';
+      const result = (service as any)._extractUsingHeuristics(html, url);
+
+      expect(result).toBeDefined();
+      expect(result.text).toContain('This is paragraph one');
+      expect(result.text).toContain('This is paragraph two');
     });
   });
 });
