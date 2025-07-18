@@ -3,7 +3,6 @@
  */
 
 import { GdeltClient } from '../client';
-import { EFormat } from '../constants';
 
 // Mock axios to avoid actual API calls
 jest.mock('axios');
@@ -75,8 +74,8 @@ describe('Client Lookup Validation', () => {
       try {
         await client.getArticles('sourcelang:en test');
       } catch (error) {
-        expect(error.message).toContain('Invalid language in query: "en"');
-        expect(error.message).toContain('Did you mean');
+        expect((error as Error).message).toContain('Invalid language in query: "en"');
+        expect((error as Error).message).toContain('Did you mean');
       }
     });
 
