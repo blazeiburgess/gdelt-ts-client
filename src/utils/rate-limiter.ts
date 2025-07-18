@@ -132,6 +132,38 @@ export class RateLimiter {
   }
 
   /**
+   * Get detailed stats for a domain
+   * @param domain - The domain to get stats for
+   * @returns Stats object with detailed information
+   */
+  public getStats(domain: string): {
+    requestsLastSecond: number;
+    requestsLastMinute: number;
+    perSecondLimit: number;
+    perMinuteLimit: number;
+  } {
+    const counts = this.getRequestCount(domain);
+    return {
+      requestsLastSecond: counts.perSecond,
+      requestsLastMinute: counts.perMinute,
+      perSecondLimit: this._maxRequestsPerSecond,
+      perMinuteLimit: this._maxRequestsPerMinute
+    };
+  }
+
+  /**
+   * Reset rate limiting for a domain or all domains
+   * @param domain - The domain to reset (optional, if not provided resets all)
+   */
+  public reset(domain?: string): void {
+    if (domain) {
+      this.resetDomain(domain);
+    } else {
+      this.resetAll();
+    }
+  }
+
+  /**
    * Helper method to delay execution
    * @param ms - Milliseconds to delay
    * @returns Promise that resolves after delay
