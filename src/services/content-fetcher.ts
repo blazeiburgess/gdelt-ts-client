@@ -22,10 +22,10 @@ export class ContentFetcherService {
 
     // Initialize content scraper
     this._contentScraper = new ContentScraper(
-      this._config.userAgent || 'Unofficial-GDELT-TS-Client/1.0.0',
-      this._config.timeout || 30000,
-      this._config.maxRequestsPerSecond || 1,
-      this._config.maxRequestsPerMinute || 30
+      this._config.userAgent ?? 'Unofficial-GDELT-TS-Client/1.0.0',
+      this._config.timeout ?? 30000,
+      this._config.maxRequestsPerSecond ?? 1,
+      this._config.maxRequestsPerMinute ?? 30
     );
 
     // Initialize content parser
@@ -52,7 +52,7 @@ export class ContentFetcherService {
       const parsedUrl = new URL(url);
       const domain = parsedUrl.hostname.toLowerCase();
       
-      const skipDomains = options?.skipDomains || this._config.skipDomains || [];
+      const skipDomains = options?.skipDomains ?? this._config.skipDomains ?? [];
       const allowedDomains = options?.allowedDomains;
       
       if (skipDomains.includes(domain)) {
@@ -211,8 +211,8 @@ export class ContentFetcherService {
    * @private
    */
   private async _fetchWithRetry(url: string, retryCount: number): Promise<any> {
-    const maxRetries = this._config.maxRetries || 2;
-    const retryableStatusCodes = this._config.retryableStatusCodes || [408, 429, 500, 502, 503, 504];
+    const maxRetries = this._config.maxRetries ?? 2;
+    const retryableStatusCodes = this._config.retryableStatusCodes ?? [408, 429, 500, 502, 503, 504];
 
     try {
       const response = await this._contentScraper.respectfulRequest(url, this._config.customHeaders);
@@ -243,13 +243,11 @@ export class ContentFetcherService {
     for (const url of urls) {
       try {
         const domain = new URL(url).hostname.toLowerCase();
-        if (!grouped[domain]) {
-          grouped[domain] = [];
-        }
+        grouped[domain] ??= [];
         grouped[domain]!.push(url);
       } catch (error) {
         // Skip invalid URLs
-        console.warn(`Invalid URL: ${url}`);
+        console.warn(`Invalid URL: ${url}: ${(error as Error).message}`);
       }
     }
     
