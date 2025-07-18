@@ -3,7 +3,6 @@
  */
 
 import { GdeltClient } from '../client';
-import { EFormat } from '../constants';
 
 // Mock axios to avoid actual API calls
 jest.mock('axios');
@@ -214,35 +213,35 @@ describe('Client Method Overloads and Edge Cases', () => {
       await expect(client.getArticles({
         query: 'test',
         timespan: 'invalid'
-      })).rejects.toThrow('Invalid timespan format: invalid');
+      })).rejects.toThrow('Invalid timespan format: invalid. Must be like "1d", "2h", "30min", "1w", "3m"');
     });
 
     it('should throw error for invalid startdatetime in enhanced validation', async () => {
       await expect(client.getArticles({
         query: 'test',
         startdatetime: 'invalid'
-      })).rejects.toThrow('Invalid startdatetime format: invalid');
+      })).rejects.toThrow('Invalid startdatetime format: invalid. Must be YYYYMMDDHHMMSS');
     });
 
     it('should throw error for invalid enddatetime in enhanced validation', async () => {
       await expect(client.getArticles({
         query: 'test',
         enddatetime: 'invalid'
-      })).rejects.toThrow('Invalid enddatetime format: invalid');
+      })).rejects.toThrow('Invalid enddatetime format: invalid. Must be YYYYMMDDHHMMSS');
     });
 
     it('should throw error for invalid maxrecords in enhanced validation', async () => {
       await expect(client.getArticles({
         query: 'test',
         maxrecords: 0
-      })).rejects.toThrow('Invalid maxrecords: 0');
+      })).rejects.toThrow('Invalid maxrecords: 0. Must be an integer between 1 and 250');
     });
 
     it('should throw error for invalid timelinesmooth in enhanced validation', async () => {
       await expect(client.getArticles({
         query: 'test',
         timelinesmooth: 0
-      })).rejects.toThrow('Invalid timelinesmooth: 0');
+      })).rejects.toThrow('Invalid timelinesmooth: 0. Must be an integer between 1 and 30');
     });
   });
 
