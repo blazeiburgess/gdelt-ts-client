@@ -4,7 +4,8 @@
 
 /* eslint-disable @typescript-eslint/explicit-member-accessibility, @typescript-eslint/naming-convention, @typescript-eslint/prefer-nullish-coalescing */
 
-// Import only what we need to avoid circular dependencies
+// Import lookup types for better type safety
+import type { CountryCode, CountryName, LanguageCode, LanguageName, GKGTheme, ImageTag, ImageWebTag } from './lookups';
 
 // ===== QUERY BUILDER CLASS =====
 
@@ -68,18 +69,24 @@ export class QueryBuilder {
   }
 
   /**
-   * Filter by source country
+   * Filter by source country (with IntelliSense support)
    */
-  fromCountry(country: string): this {
-    this.components.push(`sourcecountry:${country}`);
+  fromCountry(country: CountryCode | CountryName | string): this {
+    // Support both normalized country names and display names
+    const normalizedCountry = typeof country === 'string' ? 
+      country.toLowerCase().replace(/\s+/g, '') : country;
+    this.components.push(`sourcecountry:${normalizedCountry}`);
     return this;
   }
 
   /**
-   * Filter by source language
+   * Filter by source language (with IntelliSense support)
    */
-  inLanguage(language: string): this {
-    this.components.push(`sourcelang:${language}`);
+  inLanguage(language: LanguageCode | LanguageName | string): this {
+    // Support both language codes and names
+    const normalizedLanguage = typeof language === 'string' ? 
+      language.toLowerCase().replace(/\s+/g, '') : language;
+    this.components.push(`sourcelang:${normalizedLanguage}`);
     return this;
   }
 
@@ -129,25 +136,25 @@ export class QueryBuilder {
   }
 
   /**
-   * Filter by GDELT theme
+   * Filter by GDELT theme (with IntelliSense support)
    */
-  withTheme(theme: string): this {
+  withTheme(theme: GKGTheme | string): this {
     this.components.push(`theme:${theme.toUpperCase()}`);
     return this;
   }
 
   /**
-   * Filter for images with specific tags
+   * Filter for images with specific tags (with IntelliSense support)
    */
-  withImageTag(tag: string): this {
+  withImageTag(tag: ImageTag | string): this {
     this.components.push(`imagetag:"${tag}"`);
     return this;
   }
 
   /**
-   * Filter for images with web tags
+   * Filter for images with web tags (with IntelliSense support)
    */
-  withImageWebTag(tag: string): this {
+  withImageWebTag(tag: ImageWebTag | string): this {
     this.components.push(`imagewebtag:"${tag}"`);
     return this;
   }
@@ -408,17 +415,21 @@ export function fromDomain(domain: string, exact = false): string {
 }
 
 /**
- * Create a country filter
+ * Create a country filter (with IntelliSense support)
  */
-export function fromCountry(country: string): string {
-  return `sourcecountry:${country}`;
+export function fromCountry(country: CountryCode | CountryName | string): string {
+  const normalizedCountry = typeof country === 'string' ? 
+    country.toLowerCase().replace(/\s+/g, '') : country;
+  return `sourcecountry:${normalizedCountry}`;
 }
 
 /**
- * Create a language filter
+ * Create a language filter (with IntelliSense support)
  */
-export function inLanguage(language: string): string {
-  return `sourcelang:${language}`;
+export function inLanguage(language: LanguageCode | LanguageName | string): string {
+  const normalizedLanguage = typeof language === 'string' ? 
+    language.toLowerCase().replace(/\s+/g, '') : language;
+  return `sourcelang:${normalizedLanguage}`;
 }
 
 /**
@@ -429,10 +440,24 @@ export function withTone(operator: '>' | '<' | '=', value: number): string {
 }
 
 /**
- * Create a theme filter
+ * Create a theme filter (with IntelliSense support)
  */
-export function withTheme(theme: string): string {
+export function withTheme(theme: GKGTheme | string): string {
   return `theme:${theme.toUpperCase()}`;
+}
+
+/**
+ * Create an image tag filter (with IntelliSense support)
+ */
+export function withImageTag(tag: ImageTag | string): string {
+  return `imagetag:"${tag}"`;
+}
+
+/**
+ * Create an image web tag filter (with IntelliSense support)
+ */
+export function withImageWebTag(tag: ImageWebTag | string): string {
+  return `imagewebtag:"${tag}"`;
 }
 
 // ===== QUERY VALIDATION HELPERS =====
@@ -503,6 +528,8 @@ export const QueryHelpers = {
   inLanguage,
   withTone,
   withTheme,
+  withImageTag,
+  withImageWebTag,
   isValidQuery,
   hasBalancedQuotes,
   getQueryComplexity
