@@ -747,11 +747,13 @@ describe('GdeltClient', () => {
       mockGet.mockResolvedValue({ data: { status: 'ok', articles: [] } });
       
       // Replace the axios instance
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       (csvClient as unknown as { _axiosInstance: { get: jest.Mock } })._axiosInstance = { get: mockGet };
       
       // Call _makeRequest directly to test default format behavior
       // since getArticles overrides format to json
       try {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         const makeRequestFn = (csvClient as unknown as { _makeRequest: Function })._makeRequest;
         await makeRequestFn.call(csvClient, { query: 'test' });
       } catch {
