@@ -2,6 +2,8 @@
  * Tests for Enhanced Client functionality
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { GdeltClient } from '../client';
 import { TimespanUnit } from '../types/enhanced-types';
 

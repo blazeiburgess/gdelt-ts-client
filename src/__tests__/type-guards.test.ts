@@ -2,6 +2,8 @@
  * Tests for Type Guards functionality
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import {
   isGdeltApiResponse,
   isValidResponseObject,

@@ -2,6 +2,8 @@
  * Tests for Enhanced Types functionality
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import {
   Mode,
   Format,
