@@ -24,17 +24,7 @@ export class ContentParserService {
       console.warn('Readability extraction failed:', error);
     }
 
-    try {
-      // 2. Try article-parser library
-      const articleParserResult = this._tryArticleParser(html, url);
-      if (articleParserResult) {
-        return articleParserResult;
-      }
-    } catch (error) {
-      console.warn('Article parser extraction failed:', error);
-    }
-
-    // 3. Fallback to heuristic extraction
+    // 2. Fallback to heuristic extraction
     return this._extractUsingHeuristics(html, url);
   }
 
@@ -155,22 +145,6 @@ export class ContentParserService {
     };
   }
 
-  /**
-   * Try article-parser library for content extraction
-   * @param html - Raw HTML content
-   * @param url - Original URL
-   * @returns Parsed content or null if failed
-   * @private
-   */
-  private _tryArticleParser(_html: string, _url: string): IArticleContent | null {
-    try {
-      // Note: article-parser might return a promise in some versions
-      // For now, we'll just return null to avoid complexity
-      return null;
-    } catch (error) {
-      return null;
-    }
-  }
 
   /**
    * Extract content using heuristic methods
@@ -341,8 +315,6 @@ export class ContentParserService {
     // Base score from extraction method
     if (metadata.extractionMethod === 'readability') {
       score += 0.4;
-    } else if (metadata.extractionMethod === 'article-parser') {
-      score += 0.3;
     } else {
       score += 0.1;
     }
