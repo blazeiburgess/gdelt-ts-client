@@ -303,11 +303,20 @@ export class GdeltClient {
    * @returns A promise that resolves to the tone chart response
    */
   public async getToneChart(params: IGdeltApiBaseParams): Promise<IToneChartResponse> {
-    return this._makeRequest<IToneChartResponse>({
+    const response = await this._makeRequest<IToneChartResponse>({
       ...params,
       mode: EMode.toneChart,
       format: EFormat.json
     });
+    
+    // Ensure the response has the expected structure
+    if (!response.tonechart) {
+      // If the API returns an error message as a string, it will be caught in _makeRequest
+      // This handles the case where the API returns a valid JSON response but without the expected structure
+      throw new Error('Invalid response format from GDELT API: missing tonechart property');
+    }
+    
+    return response;
   }
 
   /**
