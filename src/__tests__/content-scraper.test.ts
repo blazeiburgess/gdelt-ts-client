@@ -2,11 +2,12 @@
  * Tests for ContentScraper utility
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/require-await */
+
 // Mock dependencies - must be before imports
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockAxios: any = {
   get: jest.fn(),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   create: jest.fn((): any => mockAxios)
 };
 
@@ -111,6 +112,59 @@ describe('ContentScraper', () => {
       // Should only fetch robots.txt once
       expect(mockAxios.get).toHaveBeenCalledTimes(1);
     });
+
+    it('should remove expired cache entries', async () => {
+      // Use jest's timer mocks to control time
+      jest.useFakeTimers();
+      
+      // Mock axios for the first call
+      mockAxios.get.mockResolvedValueOnce({
+        data: 'User-agent: *\nAllow: /'
+      });
+
+      // First call
+      await scraper.checkRobotsTxt('example.com');
+      
+      // Advance time by more than the cache expiration (1 hour + 1 minute)
+      jest.advanceTimersByTime(3660000);
+      
+      // Mock axios for the second call
+      mockAxios.get.mockResolvedValueOnce({
+        data: 'User-agent: *\nDisallow: /'
+      });
+      
+      // Second call to same domain after cache expiration
+      const result = await scraper.checkRobotsTxt('example.com');
+      
+      // Should fetch robots.txt again and return new result
+      expect(mockAxios.get).toHaveBeenCalledTimes(2);
+      expect(result).toBe(false);
+      
+      // Restore real timers
+      jest.useRealTimers();
+    });
+
+    it('should handle different user agent sections in robots.txt', async () => {
+      // Mock axios to return a robots.txt with multiple user agent sections
+      mockAxios.get.mockResolvedValueOnce({
+        data: 'User-agent: googlebot\nDisallow: /\n\nUser-agent: *\nAllow: /'
+      });
+
+      const result = await scraper.checkRobotsTxt('example.com');
+      
+      expect(result).toBe(true); // Should allow access for our user agent
+    });
+
+    it('should handle robots.txt with bot-specific rules', async () => {
+      // Mock axios to return a robots.txt with bot-specific rules
+      mockAxios.get.mockResolvedValueOnce({
+        data: 'User-agent: bot\nDisallow: /\n\nUser-agent: *\nAllow: /'
+      });
+
+      const result = await scraper.checkRobotsTxt('example.com');
+      
+      expect(result).toBe(false); // Should disallow access for bot user agent
+    });
   });
 
   describe('respectfulRequest', () => {
@@ -180,6 +234,64 @@ describe('ContentScraper', () => {
       
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockRateLimiter.waitForRateLimit).toHaveBeenCalledWith('subdomain.example.com');
+    });
+
+    it('should throw error when robots.txt disallows access', async () => {
+      // Mock checkRobotsTxt to return false (disallowed)
+      const checkRobotsSpy = jest.spyOn(scraper, 'checkRobotsTxt').mockResolvedValueOnce(false);
+      
+      await expect(scraper.respectfulRequest('https://restricted.com/article'))
+        .rejects.toThrow('Robots.txt disallows access to restricted.com');
+      
+      // Verify checkRobotsTxt was called
+      expect(checkRobotsSpy).toHaveBeenCalledWith('restricted.com');
+      
+      // Restore the original implementation
+      jest.restoreAllMocks();
+    });
+
+    it('should handle 4xx status codes', async () => {
+      mockRateLimiter.waitForRateLimit.mockResolvedValue();
+      
+      // Mock a 404 response
+      const mockResponse = {
+        data: 'Not Found',
+        status: 404,
+        headers: {},
+        config: {},
+        statusText: 'Not Found'
+      };
+
+      mockAxios.get.mockResolvedValue(mockResponse);
+
+      const result = await scraper.respectfulRequest('https://example.com/not-found');
+      
+      // Should return the response even with 4xx status
+      expect(result.status).toBe(404);
+    });
+
+    it('should validate status correctly', async () => {
+      mockRateLimiter.waitForRateLimit.mockResolvedValue();
+      
+      // Create a spy to capture the validateStatus function
+      let validateStatusFn: ((status: number) => boolean) | undefined;
+      
+      mockAxios.get.mockImplementationOnce(async (
+          _url: any, options: { validateStatus: ((status: number) => boolean) | undefined; }
+      ) => {
+        validateStatusFn = options?.validateStatus;
+        return { data: '', status: 200 };
+      });
+
+      await scraper.respectfulRequest('https://example.com/article');
+      
+      // Verify validateStatus function behavior
+      expect(validateStatusFn).toBeDefined();
+      if (validateStatusFn) {
+        expect(validateStatusFn(200)).toBe(true);  // 2xx should be valid
+        expect(validateStatusFn(404)).toBe(true);  // 4xx should be valid
+        expect(validateStatusFn(500)).toBe(false); // 5xx should be invalid
+      }
     });
   });
 
