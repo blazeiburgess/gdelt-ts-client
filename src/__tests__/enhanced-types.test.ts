@@ -114,7 +114,7 @@ describe('Enhanced Validation Functions', () => {
       expect(isValidTimespan('1s')).toBe(false); // invalid unit
       expect(isValidTimespan('1.5h')).toBe(false); // decimal
       expect(isValidTimespan('-1d')).toBe(false); // negative
-      expect(isValidTimespan('0d')).toBe(true); // zero is technically valid format
+      expect(isValidTimespan('0d')).toBe(false); // zero is not valid
       expect(isValidTimespan('')).toBe(false); // empty
       expect(isValidTimespan('1 d')).toBe(false); // space
     });
