@@ -2,20 +2,7 @@
  * Tests for ContentScraper utility
  */
 
-import { ContentScraper } from '../utils/content-scraper';
-import { RateLimiter } from '../utils/rate-limiter';
-
-// Mock dependencies
-jest.mock('../utils/rate-limiter');
-// Mock robots-txt-parser
-jest.mock('robots-txt-parser', () => {
-  return jest.fn().mockImplementation(() => ({
-    useRobotsTxt: jest.fn(),
-    canFetch: jest.fn().mockResolvedValue(true)
-  }));
-});
-jest.mock('axios');
-
+// Mock dependencies - must be before imports
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockAxios: any = {
   get: jest.fn(),
@@ -24,15 +11,41 @@ const mockAxios: any = {
 };
 
 jest.mock('axios', () => mockAxios);
+jest.mock('../utils/rate-limiter');
+
+// Create proper mock for robots-txt-parser
+const mockRobotsParser = {
+  canFetch: jest.fn().mockReturnValue(true),
+  getSitemaps: jest.fn().mockReturnValue([])
+};
+
+const mockRobotsTxt = {
+  useRobotsTxt: jest.fn(),
+  fetch: jest.fn().mockResolvedValue(mockRobotsParser)
+};
+
+// Mock robots-txt-parser
+jest.mock('robots-txt-parser', () => {
+  return jest.fn().mockImplementation(() => mockRobotsTxt);
+});
+
+import { ContentScraper } from '../utils/content-scraper';
+import { RateLimiter } from '../utils/rate-limiter';
 
 describe('ContentScraper', () => {
   let scraper: ContentScraper;
   let mockRateLimiter: jest.Mocked<RateLimiter>;
 
   beforeEach(() => {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const MockRateLimiter = RateLimiter as jest.MockedClass<typeof RateLimiter>;
-    mockRateLimiter = new MockRateLimiter(2, 10) as jest.Mocked<RateLimiter>;
+    // Create a mock instance with the methods we need
+    mockRateLimiter = {
+      waitForRateLimit: jest.fn().mockResolvedValue(undefined),
+      getStats: jest.fn(),
+      reset: jest.fn()
+    } as unknown as jest.Mocked<RateLimiter>;
+    
+    // Make the RateLimiter constructor return our mock instance
+    (RateLimiter as jest.MockedClass<typeof RateLimiter>).mockImplementation(() => mockRateLimiter);
     
     scraper = new ContentScraper(
       'Test-Agent',
