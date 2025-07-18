@@ -35,6 +35,16 @@ import {
   QueryHelpers
 } from './types/query-builder';
 import { TypeGuards } from './types/type-guards';
+import { 
+  isValidCountry, 
+  isValidLanguage, 
+  isValidTheme, 
+  isValidImageTag, 
+  isValidImageWebTag, 
+  searchCountries, 
+  searchLanguages, 
+  searchThemes 
+} from './types/lookups';
 
 /**
  * GDELT API Client
@@ -739,6 +749,85 @@ export class GdeltClient {
     
     if (params.timelinesmooth !== undefined && !isValidTimelineSmooth(params.timelinesmooth)) {
       throw new Error(`Invalid timelinesmooth: ${String(params.timelinesmooth)}. Must be an integer between 1 and 30`);
+    }
+    
+    // Validate query content if it contains lookup-based operators
+    if (params.query) {
+      this._validateQueryLookups(params.query);
+    }
+  }
+
+  /**
+   * Validate query content using lookup data
+   */
+  private _validateQueryLookups(query: string): void {
+    // Extract and validate country queries
+    const countryMatches = query.match(/sourcecountry:([a-zA-Z0-9]+)/g);
+    if (countryMatches) {
+      for (const match of countryMatches) {
+        const country = match.split(':')[1];
+        if (country && !isValidCountry(country)) {
+          const suggestions = searchCountries(country);
+          const suggestionText = suggestions.length > 0 
+            ? ` Did you mean: ${suggestions.slice(0, 3).map(s => `"${s.code}" (${s.name})`).join(', ')}?`
+            : '';
+          throw new Error(`Invalid country in query: "${country}".${suggestionText}`);
+        }
+      }
+    }
+    
+    // Extract and validate language queries
+    const languageMatches = query.match(/sourcelang:([a-zA-Z0-9]+)/g);
+    if (languageMatches) {
+      for (const match of languageMatches) {
+        const language = match.split(':')[1];
+        if (language && !isValidLanguage(language)) {
+          const suggestions = searchLanguages(language);
+          const suggestionText = suggestions.length > 0 
+            ? ` Did you mean: ${suggestions.slice(0, 3).map(s => `"${s.code}" (${s.name})`).join(', ')}?`
+            : '';
+          throw new Error(`Invalid language in query: "${language}".${suggestionText}`);
+        }
+      }
+    }
+    
+    // Extract and validate theme queries
+    const themeMatches = query.match(/theme:([A-Z_0-9]+)/g);
+    if (themeMatches) {
+      for (const match of themeMatches) {
+        const theme = match.split(':')[1];
+        if (theme && !isValidTheme(theme)) {
+          const suggestions = searchThemes(theme);
+          const suggestionText = suggestions.length > 0 
+            ? ` Did you mean: ${suggestions.slice(0, 3).map(s => `"${s}"`).join(', ')}?`
+            : '';
+          throw new Error(`Invalid theme in query: "${theme}".${suggestionText}`);
+        }
+      }
+    }
+    
+    // Extract and validate image tag queries
+    const imageTagMatches = query.match(/imagetag:"([^"]+)"/g);
+    if (imageTagMatches) {
+      for (const match of imageTagMatches) {
+        const tag = match.match(/imagetag:"([^"]+)"/)?.[1];
+        if (tag && !isValidImageTag(tag)) {
+          // Only warn for image tags since the list is not exhaustive
+          console.warn(`Image tag "${tag}" is not in the common tags list. This may still be valid.`);
+        }
+      }
+    }
+    
+    // Extract and validate image web tag queries
+    const imageWebTagMatches = query.match(/imagewebtag:"([^"]+)"/g);
+    if (imageWebTagMatches) {
+      for (const match of imageWebTagMatches) {
+        const tag = match.match(/imagewebtag:"([^"]+)"/)?.[1];
+        if (tag && !isValidImageWebTag(tag)) {
+          // Only warn for image web tags since the list is not exhaustive
+          console.warn(`Image web tag "${tag}" is not in the common tags list. This may still be valid.`);
+        }
+      }
     }
   }
 
