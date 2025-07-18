@@ -95,6 +95,81 @@ export class GdeltClient {
   }
 
   /**
+   * Validates API parameters
+   * @param params - The API parameters to validate
+   * @private
+   */
+  private _validateParams(params: IGdeltApiBaseParams): void {
+    // Validate query parameter
+    if (!params.query || typeof params.query !== 'string' || params.query.trim() === '') {
+      throw new Error('Query parameter is required and must be a non-empty string');
+    }
+
+    // Validate maxrecords
+    if (params.maxrecords !== undefined) {
+      if (!Number.isInteger(params.maxrecords) || params.maxrecords < 1 || params.maxrecords > 250) {
+        throw new Error('maxrecords must be an integer between 1 and 250');
+      }
+    }
+
+    // Validate timelinesmooth
+    if (params.timelinesmooth !== undefined) {
+      if (!Number.isInteger(params.timelinesmooth) || params.timelinesmooth < 1 || params.timelinesmooth > 30) {
+        throw new Error('timelinesmooth must be an integer between 1 and 30');
+      }
+    }
+
+    // Validate datetime formats
+    const datetimeRegex = /^\d{14}$/;
+    if (params.startdatetime && !datetimeRegex.test(params.startdatetime)) {
+      throw new Error('startdatetime must be in YYYYMMDDHHMMSS format (14 digits)');
+    }
+    if (params.enddatetime && !datetimeRegex.test(params.enddatetime)) {
+      throw new Error('enddatetime must be in YYYYMMDDHHMMSS format (14 digits)');
+    }
+
+    // Validate timespan format if provided
+    if (params.timespan) {
+      const timespanRegex = /^\d+(?:min|h|d|w|m)$/;
+      if (!timespanRegex.test(params.timespan)) {
+        throw new Error('timespan must be in format like "1d", "2h", "30min", "1w", "3m"');
+      }
+    }
+  }
+
+  /**
+   * Transforms API response data without mutating the original
+   * @param data - The original response data
+   * @returns The transformed response data
+   * @private
+   */
+  private _transformResponse<T extends object>(data: unknown): T {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid response data: expected object');
+    }
+
+    // Create a new object without mutating the original
+    const transformedData = { ...data } as Record<string, unknown>;
+
+    // Add status if missing
+    if (!('status' in transformedData)) {
+      transformedData['status'] = 'ok';
+    }
+
+    // Add count property for article list responses
+    if ('articles' in transformedData && Array.isArray(transformedData["articles"]) && !('count' in transformedData)) {
+      transformedData['count'] = transformedData["articles"].length;
+    }
+
+    // Add count property for image collage responses
+    if ('images' in transformedData && Array.isArray(transformedData["images"]) && !('count' in transformedData)) {
+      transformedData['count'] = transformedData["images"].length;
+    }
+
+    return transformedData as T;
+  }
+
+  /**
    * Builds the query parameters for the API request
    * @param params - The API parameters
    * @returns The query parameters object
@@ -161,6 +236,9 @@ export class GdeltClient {
    * @private
    */
   private async _makeRequest<T extends object>(params: IGdeltApiBaseParams): Promise<T> {
+    // Validate parameters before making request
+    this._validateParams(params);
+    
     const queryParams = this._buildQueryParams(params);
     let retries = 0;
 
@@ -180,30 +258,16 @@ export class GdeltClient {
     };
 
     const response = await makeAxiosRequest();
-    console.log('Raw API response:', JSON.stringify(response.data, null, 2));
     
     // Handle string responses (error messages)
     if (typeof response.data === 'string') {
       throw new Error(response.data);
     }
     
-    // Add missing properties to the response
-    const data = response.data;
+    // Transform response data without mutating original
+    const transformedData = this._transformResponse<T>(response.data);
     
-    // Add status if missing using nullish coalescing operator
-    (data as Record<string, unknown>)['status'] ??= 'ok';
-    
-    // Add count property for article list responses
-    if ('articles' in data && !('count' in data)) {
-      (data as Record<string, unknown>)['count'] = (data as { articles: unknown[] }).articles.length;
-    }
-    
-    // Add count property for image collage responses
-    if ('images' in data && !('count' in data)) {
-      (data as Record<string, unknown>)['count'] = (data as { images: unknown[] }).images.length;
-    }
-    
-    return data;
+    return transformedData;
   }
 
   /**
