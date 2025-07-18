@@ -963,11 +963,20 @@ export class GdeltClient {
     for (const article of articles.articles) {
       const contentResult = resultMap.get(article.url);
       if (contentResult) {
-        articlesWithContent.push({
+        const articleWithContent: IArticleWithContent = {
           ...article,
-          content: contentResult.content,
-          contentResult
-        });
+          content: contentResult.success ? contentResult.content || null : null
+        };
+        
+        if (!contentResult.success && contentResult.error) {
+          articleWithContent.contentError = contentResult.error;
+        }
+        
+        if (contentResult.timing) {
+          articleWithContent.contentTiming = contentResult.timing;
+        }
+        
+        articlesWithContent.push(articleWithContent);
       }
     }
     
@@ -1004,11 +1013,20 @@ export class GdeltClient {
     for (const article of articles) {
       const contentResult = resultMap.get(article.url);
       if (contentResult) {
-        articlesWithContent.push({
+        const articleWithContent: IArticleWithContent = {
           ...article,
-          content: contentResult.content,
-          contentResult
-        });
+          content: contentResult.success ? contentResult.content || null : null
+        };
+        
+        if (!contentResult.success && contentResult.error) {
+          articleWithContent.contentError = contentResult.error;
+        }
+        
+        if (contentResult.timing) {
+          articleWithContent.contentTiming = contentResult.timing;
+        }
+        
+        articlesWithContent.push(articleWithContent);
       }
     }
     
@@ -1022,17 +1040,28 @@ export class GdeltClient {
    * @private
    */
   private _calculateContentStats(contentResults: IArticleContentResult[]): {
-    successCount: number;
-    failureCount: number;
+    totalArticles: number;
+    successfulFetches: number;
+    failedFetches: number;
     averageFetchTime: number;
+    averageParseTime: number;
     totalFetchTime: number;
+    totalWords: number;
     failureReasons: Record<string, number>;
   } {
-    const successCount = contentResults.filter(r => r.success).length;
-    const failureCount = contentResults.filter(r => !r.success).length;
+    const totalArticles = contentResults.length;
+    const successfulFetches = contentResults.filter(r => r.success).length;
+    const failedFetches = contentResults.filter(r => !r.success).length;
     
-    const totalFetchTime = contentResults.reduce((sum, r) => sum + r.timing.totalTime, 0);
-    const averageFetchTime = contentResults.length > 0 ? totalFetchTime / contentResults.length : 0;
+    const totalFetchTime = Math.max(...contentResults.map(r => r.timing.totalTime));
+    const averageFetchTime = contentResults.length > 0 ? 
+      contentResults.reduce((sum, r) => sum + r.timing.fetchTime, 0) / contentResults.length : 0;
+    const averageParseTime = contentResults.length > 0 ? 
+      contentResults.reduce((sum, r) => sum + r.timing.parseTime, 0) / contentResults.length : 0;
+    
+    const totalWords = contentResults
+      .filter(r => r.success && r.content)
+      .reduce((sum, r) => sum + (r.content?.wordCount || 0), 0);
     
     const failureReasons: Record<string, number> = {};
     for (const result of contentResults) {
@@ -1043,10 +1072,13 @@ export class GdeltClient {
     }
     
     return {
-      successCount,
-      failureCount,
+      totalArticles,
+      successfulFetches,
+      failedFetches,
       averageFetchTime,
+      averageParseTime,
       totalFetchTime,
+      totalWords,
       failureReasons
     };
   }
