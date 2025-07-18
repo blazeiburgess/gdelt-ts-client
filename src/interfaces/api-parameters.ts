@@ -1,4 +1,5 @@
 import { EFormat, EMode, ESort, ETimeZoom, ETranslation, ETimespanUnit } from '../constants';
+import { IContentFetcherConfig } from './content-fetcher';
 
 /**
  * Interface for the GDELT API query operators
@@ -232,4 +233,9 @@ export interface IGdeltClientConfig {
    * @default 1000 (1 second)
    */
   retryDelay?: number;
+
+  /**
+   * Configuration for content fetching functionality
+   */
+  contentFetcher?: IContentFetcherConfig;
 }
