@@ -1024,4 +1024,240 @@ describe('GdeltClient', () => {
       expect(typeof (result as unknown as { metadata: { timestamp: number; version: string } }).metadata?.version).toBe('string');
     });
   });
+
+  describe('method overload parameter validation', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+      mockGet.mockResolvedValue({ data: { status: 'ok', articles: [] } });
+    });
+
+    it('should handle invalid parameter types in getTimelineWithArticles', async () => {
+      await expect(client.getTimelineWithArticles(null as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+
+    it('should handle invalid parameter types in getToneChart', async () => {
+      await expect(client.getToneChart(42 as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+
+    it('should handle invalid parameter types in getTimeline', async () => {
+      await expect(client.getTimeline([] as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+
+    it('should handle string parameter for getTimelineWithArticles', async () => {
+      await client.getTimelineWithArticles('test query');
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: 'test query',
+          mode: EMode.timelineVolumeInfo,
+          format: EFormat.json
+        })
+      });
+    });
+
+    it('should handle string parameter with options for getTimeline', async () => {
+      await client.getTimeline('test query', { timespan: '1d' });
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: 'test query',
+          timespan: '1d',
+          mode: EMode.timelineVolume,
+          format: EFormat.json
+        })
+      });
+    });
+
+    it('should handle string parameter for getToneChart', async () => {
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok', 
+          tonechart: [
+            { bin: -10, count: 5, toparts: [] },
+            { bin: 0, count: 10, toparts: [] },
+            { bin: 10, count: 3, toparts: [] }
+          ]
+        }
+      });
+
+      await client.getToneChart('test query');
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: 'test query',
+          mode: EMode.toneChart,
+          format: EFormat.json
+        })
+      });
+    });
+  });
+
+  describe('query validation with lookups', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+      mockGet.mockResolvedValue({ data: { status: 'ok', articles: [] } });
+    });
+
+    it('should validate country codes in queries', async () => {
+      await expect(client.getArticles({ query: 'sourcecountry:invalidcode' }))
+        .rejects.toThrow('Invalid country in query: "invalidcode"');
+    });
+
+    it('should validate language codes in queries', async () => {
+      await expect(client.getArticles({ query: 'sourcelang:invalidlang' }))
+        .rejects.toThrow('Invalid language in query: "invalidlang"');
+    });
+
+    it('should validate theme codes in queries', async () => {
+      await expect(client.getArticles({ query: 'theme:invalidtheme' }))
+        .rejects.toThrow('Invalid theme in query: "invalidtheme"');
+    });
+
+    it('should provide suggestions for invalid country codes', async () => {
+      await expect(client.getArticles({ query: 'sourcecountry:usa' }))
+        .rejects.toThrow(/Did you mean:/);
+    });
+
+    it('should provide suggestions for invalid language codes', async () => {
+      await expect(client.getArticles({ query: 'sourcelang:en' }))
+        .rejects.toThrow(/Did you mean:/);
+    });
+
+    it('should provide suggestions for invalid theme codes', async () => {
+      await expect(client.getArticles({ query: 'theme:political' }))
+        .rejects.toThrow(/Did you mean:/);
+    });
+
+    it('should accept valid country codes', async () => {
+      await expect(client.getArticles({ query: 'sourcecountry:unitedstates' }))
+        .resolves.not.toThrow();
+    });
+
+    it('should accept valid language codes', async () => {
+      await expect(client.getArticles({ query: 'sourcelang:english' }))
+        .resolves.not.toThrow();
+    });
+
+    it('should accept valid theme codes', async () => {
+      await expect(client.getArticles({ query: 'theme:GENERAL_HEALTH' }))
+        .resolves.not.toThrow();
+    });
+
+    it('should handle multiple invalid codes in one query', async () => {
+      await expect(client.getArticles({ query: 'sourcecountry:invalidcode AND sourcelang:invalidlang' }))
+        .rejects.toThrow('Invalid country in query: "invalidcode"');
+    });
+  });
+
+  describe('additional response validation', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+    });
+
+    it('should handle getToneChart response without tonechart property', async () => {
+      mockGet.mockResolvedValue({
+        data: { status: 'ok' }
+      });
+
+      await expect(client.getToneChart({ query: 'test' }))
+        .rejects.toThrow('Invalid response format from GDELT API: missing tonechart property');
+    });
+
+    it('should handle array responses in articles that need count', async () => {
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok', 
+          articles: [
+            { title: 'Article 1' },
+            { title: 'Article 2' },
+            { title: 'Article 3' }
+          ]
+        }
+      });
+
+      const result = await client.getArticles({ query: 'test' });
+      
+      expect(result.count).toBe(3);
+      expect(result.articles).toHaveLength(3);
+    });
+
+    it('should handle image responses that need count', async () => {
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok', 
+          images: [
+            { url: 'https://example.com/image1.jpg' },
+            { url: 'https://example.com/image2.jpg' }
+          ]
+        }
+      });
+
+      const result = await client.getImages({ query: 'test' });
+      
+      expect(result.count).toBe(2);
+      expect(result.images).toHaveLength(2);
+    });
+
+    it('should handle timeline responses that need count', async () => {
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok', 
+          timeline: [
+            { date: '2025-01-01', count: 10 },
+            { date: '2025-01-02', count: 15 }
+          ]
+        }
+      });
+
+      const result = await client.getTimeline({ query: 'test' });
+      
+      expect((result as unknown as { count: number }).count).toBe(2);
+      expect((result as unknown as { timeline: unknown[] }).timeline).toHaveLength(2);
+    });
+  });
+
+  describe('error response handling', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+    });
+
+    it('should handle string error responses from API', async () => {
+      mockGet.mockResolvedValue({
+        data: 'ERROR: Query syntax error'
+      });
+
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('ERROR: Query syntax error');
+    });
+
+    it('should handle null response data', async () => {
+      mockGet.mockResolvedValue({
+        data: null
+      });
+
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Invalid response data: expected object');
+    });
+
+    it('should handle undefined response data', async () => {
+      mockGet.mockResolvedValue({
+        data: undefined
+      });
+
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Invalid response data: expected object');
+    });
+
+    it('should handle non-object response data', async () => {
+      mockGet.mockResolvedValue({
+        data: 123
+      });
+
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Invalid response data: expected object');
+    });
+  });
 });
