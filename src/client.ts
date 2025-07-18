@@ -792,7 +792,7 @@ export class GdeltClient {
     }
     
     // Extract and validate theme queries
-    const themeMatches = query.match(/theme:([A-Z_0-9]+)/g);
+    const themeMatches = query.match(/theme:([A-Za-z_0-9]+)/gi);
     if (themeMatches) {
       for (const match of themeMatches) {
         const theme = match.split(':')[1];
