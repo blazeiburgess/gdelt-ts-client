@@ -558,4 +558,466 @@ describe('GdeltClient', () => {
       })).resolves.not.toThrow();
     });
   });
+
+  describe('error scenarios and edge cases', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+    });
+
+    it('should handle network errors gracefully', async () => {
+      const networkError = new Error('Network Error');
+      networkError.name = 'AxiosError';
+      (networkError as unknown as { code: string }).code = 'ECONNREFUSED';
+      
+      mockGet.mockRejectedValue(networkError);
+      
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Network Error');
+    });
+
+    it('should handle HTTP error responses', async () => {
+      const httpError = new Error('Request failed with status code 500');
+      httpError.name = 'AxiosError';
+      (httpError as unknown as { response: { status: number; statusText: string } }).response = { status: 500, statusText: 'Internal Server Error' };
+      
+      mockGet.mockRejectedValue(httpError);
+      
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Request failed with status code 500');
+    });
+
+    it('should handle rate limiting errors', async () => {
+      const rateLimitError = new Error('Request failed with status code 429');
+      rateLimitError.name = 'AxiosError';
+      (rateLimitError as unknown as { response: { status: number; statusText: string; headers: Record<string, string> } }).response = { 
+        status: 429, 
+        statusText: 'Too Many Requests',
+        headers: { retryAfter: '60' }
+      };
+      
+      mockGet.mockRejectedValue(rateLimitError);
+      
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Request failed with status code 429');
+    });
+
+    it('should handle malformed JSON responses', async () => {
+      mockGet.mockResolvedValue({
+        data: null
+      });
+      
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Invalid response data: expected object');
+    });
+
+    it('should handle empty arrays in responses', async () => {
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok', 
+          articles: [],
+          count: 0 
+        }
+      });
+      
+      const result = await client.getArticles({ query: 'test' });
+      
+      expect(result.articles).toEqual([]);
+      expect(result.count).toBe(0);
+      expect(result.status).toBe('ok');
+    });
+
+    it('should handle responses with missing articles array', async () => {
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok'
+          // Missing articles array
+        }
+      });
+      
+      const result = await client.getArticles({ query: 'test' });
+      
+      expect(result.status).toBe('ok');
+      // Should not crash and should preserve the original structure
+    });
+
+    it('should handle responses with null values in arrays', async () => {
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok', 
+          articles: [
+            { title: 'Valid Article', url: 'https://example.com/1' },
+            null, // Invalid entry
+            { title: 'Another Valid Article', url: 'https://example.com/2' }
+          ],
+          count: 3
+        }
+      });
+      
+      const result = await client.getArticles({ query: 'test' });
+      
+      expect(result.articles).toHaveLength(3);
+      expect(result.articles[0]).toHaveProperty('title', 'Valid Article');
+      expect(result.articles[1]).toBeNull();
+      expect(result.articles[2]).toHaveProperty('title', 'Another Valid Article');
+    });
+
+    it('should handle very large response datasets', async () => {
+      const largeArticlesArray = Array.from({ length: 1000 }, (_, i) => ({
+        title: `Article ${i}`,
+        url: `https://example.com/article-${i}`,
+        seendate: '20250101120000',
+        domain: 'example.com',
+        sourcecountry: 'US',
+        sourcelanguage: 'english'
+      }));
+
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok', 
+          articles: largeArticlesArray
+        }
+      });
+      
+      const result = await client.getArticles({ query: 'test' });
+      
+      expect(result.articles).toHaveLength(1000);
+      expect(result.count).toBe(1000); // Should be added by transformer
+    });
+
+    it('should handle timeout scenarios', async () => {
+      const timeoutError = new Error('timeout of 30000ms exceeded');
+      timeoutError.name = 'AxiosError';
+      (timeoutError as any).code = 'ECONNABORTED';
+      
+      mockGet.mockRejectedValue(timeoutError);
+      
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('timeout of 30000ms exceeded');
+    });
+
+    it('should handle invalid mode in response validation', async () => {
+      // For getToneChart which has specific validation
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok'
+          // Missing tonechart property
+        }
+      });
+      
+      await expect(client.getToneChart({ query: 'test' }))
+        .rejects.toThrow('Invalid response format from GDELT API: missing tonechart property');
+    });
+  });
+
+  describe('configuration testing', () => {
+    it('should respect custom timeout settings', async () => {
+      const customClient = new GdeltClient({
+        timeout: 5000
+      });
+      
+      expect(customClient).toBeInstanceOf(GdeltClient);
+      
+      // Check that axios.create was called with custom timeout
+      const mockCalls = mockedAxios.create.mock.calls;
+      const lastCall = mockCalls[mockCalls.length - 1];
+      const config = lastCall?.[0];
+      expect(config?.timeout).toBe(5000);
+    });
+
+    it('should respect custom base URL', async () => {
+      const customClient = new GdeltClient({
+        baseUrl: 'https://custom-gdelt-api.example.com'
+      });
+      
+      expect(customClient).toBeInstanceOf(GdeltClient);
+      
+      const mockCalls = mockedAxios.create.mock.calls;
+      const lastCall = mockCalls[mockCalls.length - 1];
+      const config = lastCall?.[0];
+      expect(config?.baseURL).toBe('https://custom-gdelt-api.example.com');
+    });
+
+    it('should handle different default formats', async () => {
+      const csvClient = new GdeltClient({
+        defaultFormat: EFormat.csv
+      });
+      
+      // Reset and setup mock for this client
+      mockGet.mockClear();
+      mockGet.mockResolvedValue({ data: { status: 'ok', articles: [] } });
+      
+      // Replace the axios instance
+      (csvClient as any)._axiosInstance = { get: mockGet };
+      
+      // Call _makeRequest directly to test default format behavior
+      // since getArticles overrides format to json
+      try {
+        const makeRequestFn = (csvClient as any)._makeRequest;
+        await makeRequestFn.call(csvClient, { query: 'test' });
+      } catch {
+        // Ignore validation errors, we just want to check the params
+      }
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          format: EFormat.csv
+        })
+      });
+    });
+
+    it('should handle retry configuration correctly', async () => {
+      const noRetryClient = new GdeltClient({
+        retry: false,
+        maxRetries: 0,
+        retryDelay: 100
+      });
+      
+      mockGet.mockClear();
+      mockGet.mockRejectedValue(new Error('Network error'));
+      
+      await expect(noRetryClient.getArticles({ query: 'test' }))
+        .rejects.toThrow('Network error');
+      
+      // Should only be called once with no retries
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle custom retry settings', async () => {
+      const customRetryClient = new GdeltClient({
+        retry: true,
+        maxRetries: 1,
+        retryDelay: 10 // Fast retry for testing
+      });
+      
+      mockGet.mockClear();
+      mockGet
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce({ data: { status: 'ok', articles: [] } });
+      
+      await customRetryClient.getArticles({ query: 'test' });
+      
+      // Should be called twice (initial + 1 retry)
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle all configuration options together', async () => {
+      const fullyConfiguredClient = new GdeltClient({
+        baseUrl: 'https://custom-api.example.com',
+        defaultFormat: EFormat.json,
+        timeout: 10000,
+        retry: true,
+        maxRetries: 2,
+        retryDelay: 500
+      });
+      
+      expect(fullyConfiguredClient).toBeInstanceOf(GdeltClient);
+      
+      const mockCalls = mockedAxios.create.mock.calls;
+      const lastCall = mockCalls[mockCalls.length - 1];
+      const config = lastCall?.[0];
+      
+      expect(config?.baseURL).toBe('https://custom-api.example.com');
+      expect(config?.timeout).toBe(10000);
+      expect(config?.headers).toEqual({
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      });
+    });
+  });
+
+  describe('complex query building and edge cases', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+      mockGet.mockResolvedValue({ data: { status: 'ok', articles: [] } });
+    });
+
+    it('should handle queries with special characters', async () => {
+      const specialQuery = 'test "quoted phrase" AND (term1 OR term2) NOT excluded';
+      
+      await client.getArticles({ query: specialQuery });
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: specialQuery
+        })
+      });
+    });
+
+    it('should handle queries with operators', async () => {
+      const operatorQuery = 'domain:cnn.com AND tone>5 AND sourcecountry:unitedstates';
+      
+      await client.getArticles({ query: operatorQuery });
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: operatorQuery
+        })
+      });
+    });
+
+    it('should handle very long queries', async () => {
+      const longQuery = Array.from({ length: 100 }, (_, i) => `term${i}`).join(' OR ');
+      
+      await client.getArticles({ query: longQuery });
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: longQuery
+        })
+      });
+    });
+
+    it('should handle unicode and international characters', async () => {
+      const unicodeQuery = 'климат OR المناخ OR 气候 OR климатические';
+      
+      await client.getArticles({ query: unicodeQuery });
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: unicodeQuery
+        })
+      });
+    });
+
+    it('should handle boundary values for numeric parameters', async () => {
+      await client.getArticles({ 
+        query: 'test',
+        maxrecords: 1 // Minimum value
+      });
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          maxrecords: 1
+        })
+      });
+      
+      mockGet.mockClear();
+      
+      await client.getArticles({ 
+        query: 'test',
+        maxrecords: 250 // Maximum value
+      });
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          maxrecords: 250
+        })
+      });
+    });
+
+    it('should handle edge case datetime values', async () => {
+      await client.getArticles({ 
+        query: 'test',
+        startdatetime: '20250101000000', // Midnight
+        enddatetime: '20251231235959'   // End of year
+      });
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          startdatetime: '20250101000000',
+          enddatetime: '20251231235959'
+        })
+      });
+    });
+
+    it('should handle all timespan units', async () => {
+      const timespanTests = [
+        { value: 30, unit: ETimespanUnit.minutes, expected: '30min' },
+        { value: 12, unit: ETimespanUnit.hours, expected: '12h' },
+        { value: 7, unit: ETimespanUnit.days, expected: '7d' },
+        { value: 4, unit: ETimespanUnit.weeks, expected: '4w' },
+        { value: 6, unit: ETimespanUnit.months, expected: '6m' }
+      ];
+
+      for (const test of timespanTests) {
+        const timespan = client.createTimespan(test.value, test.unit);
+        expect(timespan).toBe(test.expected);
+      }
+    });
+
+    it('should handle complex parameter combinations', async () => {
+      await client.getArticles({
+        query: 'complex AND (term1 OR term2)',
+        timespan: '1w',
+        maxrecords: 100,
+        sort: ESort.dateDesc,
+        startdatetime: '20250101120000',
+        enddatetime: '20250108120000'
+      });
+      
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: 'complex AND (term1 OR term2)',
+          timespan: '1w',
+          maxrecords: 100,
+          sort: ESort.dateDesc,
+          startdatetime: '20250101120000',
+          enddatetime: '20250108120000',
+          mode: EMode.articleList,
+          format: EFormat.json
+        })
+      });
+    });
+  });
+
+  describe('response data integrity', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+    });
+
+    it('should not mutate original response data', async () => {
+      const originalResponse = { 
+        status: 'ok', 
+        articles: [{ title: 'Test Article' }]
+      };
+      
+      mockGet.mockResolvedValue({
+        data: originalResponse
+      });
+      
+      await client.getArticles({ query: 'test' });
+      
+      // Original response should not have count added
+      expect('count' in originalResponse).toBe(false);
+    });
+
+    it('should handle responses without modifying prototype', async () => {
+      const response = Object.create(null); // Object without prototype
+      response.articles = [{ title: 'Test' }];
+      response.status = 'ok';
+      
+      mockGet.mockResolvedValue({ data: response });
+      
+      const result = await client.getArticles({ query: 'test' });
+      
+      expect(result.count).toBe(1);
+      expect(result.status).toBe('ok');
+    });
+
+    it('should preserve original data types', async () => {
+      mockGet.mockResolvedValue({
+        data: { 
+          status: 'ok',
+          articles: [
+            { 
+              title: 'Test Article',
+              tone: 5.5,
+              seendate: '20250101120000'
+            }
+          ],
+          metadata: {
+            timestamp: 1234567890,
+            version: '2.0'
+          }
+        }
+      });
+      
+      const result = await client.getArticles({ query: 'test' });
+      
+      expect(typeof result.articles[0]?.tone).toBe('number');
+      expect(typeof result.articles[0]?.seendate).toBe('string');
+      expect(typeof (result as any).metadata?.timestamp).toBe('number');
+      expect(typeof (result as any).metadata?.version).toBe('string');
+    });
+  });
 });
