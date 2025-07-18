@@ -17,6 +17,7 @@ export * from './client';
 export * from './types/enhanced-types';
 export * from './types/type-guards';
 export * from './types/query-builder';
+export * from './types/lookups';
 
 // Export factory function for backward compatibility
 export { GdeltClient as EnhancedGdeltClient } from './client';
