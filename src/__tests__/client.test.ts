@@ -724,7 +724,7 @@ describe('GdeltClient', () => {
       expect(config?.timeout).toBe(5000);
     });
 
-    it('should respect custom base URL', async () => {
+    it('should respect custom base URL', () => {
       const customClient = new GdeltClient({
         baseUrl: 'https://custom-gdelt-api.example.com'
       });
@@ -747,12 +747,12 @@ describe('GdeltClient', () => {
       mockGet.mockResolvedValue({ data: { status: 'ok', articles: [] } });
       
       // Replace the axios instance
-      (csvClient as any)._axiosInstance = { get: mockGet };
+      (csvClient as unknown as { _axiosInstance: { get: jest.Mock } })._axiosInstance = { get: mockGet };
       
       // Call _makeRequest directly to test default format behavior
       // since getArticles overrides format to json
       try {
-        const makeRequestFn = (csvClient as any)._makeRequest;
+        const makeRequestFn = (csvClient as unknown as { _makeRequest: Function })._makeRequest;
         await makeRequestFn.call(csvClient, { query: 'test' });
       } catch {
         // Ignore validation errors, we just want to check the params
