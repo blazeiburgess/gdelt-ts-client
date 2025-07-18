@@ -96,13 +96,13 @@ export class ContentParserService {
     
     // Extract canonical URL
     const canonicalLink = document.querySelector('link[rel="canonical"]');
-    const canonicalUrl = canonicalLink?.getAttribute('href') || undefined;
+    const canonicalUrl = canonicalLink?.getAttribute('href') ?? undefined;
     
     return {
       openGraph,
       twitterCard,
       article,
-      canonicalUrl: canonicalUrl || '',
+      canonicalUrl: canonicalUrl ?? '',
       extractionMethod: 'fallback',
       extractionConfidence: 0.5
     };
@@ -134,10 +134,10 @@ export class ContentParserService {
     
     return {
       text: this._stripHtml(article.content),
-      title: article.title || '',
-      author: article.byline || '',
-      publishDate: this._extractDateFromMetadata(metadata) || '',
-      language: this._detectLanguage(article.content) || '',
+      title: article.title ?? '',
+      author: article.byline ?? '',
+      publishDate: this._extractDateFromMetadata(metadata) ?? '',
+      language: this._detectLanguage(article.content) ?? '',
       wordCount: this._countWords(this._stripHtml(article.content)),
       metadata,
       paywallDetected: this.detectPaywall(html),
@@ -181,20 +181,20 @@ export class ContentParserService {
     // Try to find title
     const titleElement = document.querySelector('h1, .title, .headline, .article-title');
     if (titleElement) {
-      title = titleElement.textContent?.trim() || '';
+      title = titleElement.textContent?.trim() ?? '';
     }
     
     // Try to find author
     const authorElement = document.querySelector('.author, .byline, [rel="author"], .writer');
     if (authorElement) {
-      author = authorElement.textContent?.trim() || '';
+      author = authorElement.textContent?.trim() ?? '';
     }
     
     // Try to find content
     for (const selector of contentSelectors) {
       const element = document.querySelector(selector);
       if (element) {
-        content = element.textContent?.trim() || '';
+        content = element.textContent?.trim() ?? '';
         if (content.length > 200) {
           break;
         }
@@ -224,8 +224,8 @@ export class ContentParserService {
       text: content,
       title: title || '',
       author: author || '',
-      publishDate: this._extractDateFromMetadata(metadata) || '',
-      language: this._detectLanguage(content) || '',
+      publishDate: this._extractDateFromMetadata(metadata) ?? '',
+      language: this._detectLanguage(content) ?? '',
       wordCount: this._countWords(content),
       metadata,
       paywallDetected: this.detectPaywall(html),
@@ -241,7 +241,7 @@ export class ContentParserService {
    */
   private _stripHtml(html: string): string {
     const dom = new JSDOM(html);
-    return dom.window.document.body.textContent || '';
+    return dom.window.document.body.textContent ?? '';
   }
 
   /**
@@ -295,10 +295,10 @@ export class ContentParserService {
    * @private
    */
   private _extractDateFromMetadata(metadata: IContentMetadata): string | undefined {
-    return metadata.article?.['published_time'] || 
-           metadata.openGraph?.['published_time'] ||
-           metadata.article?.['modified_time'] ||
-           metadata.openGraph?.['updated_time'] ||
+    return metadata.article?.['published_time'] ??
+           metadata.openGraph?.['published_time'] ??
+           metadata.article?.['modified_time'] ??
+           metadata.openGraph?.['updated_time'] ??
            undefined;
   }
 
