@@ -157,8 +157,8 @@ export class GdeltClient {
 
     // Validate timespan format if provided
     if (params.timespan) {
-      const timespanRegex = /^\d+(?:min|h|d|w|m)$/;
-      if (!timespanRegex.test(params.timespan)) {
+      const timespanMatch = /^(\d+)(?:min|h|d|w|m)$/.exec(params.timespan);
+      if (!timespanMatch || parseInt(timespanMatch[1]!, 10) <= 0) {
         throw new Error('timespan must be in format like "1d", "2h", "30min", "1w", "3m"');
       }
     }
@@ -321,7 +321,7 @@ export class GdeltClient {
         query: paramsOrQuery,
         ...options
       };
-    } else if (typeof paramsOrQuery === 'object' && 'query' in paramsOrQuery) {
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
       finalParams = paramsOrQuery;
     } else {
       throw new Error('Invalid parameters: expected object with query property or query string');
@@ -363,7 +363,7 @@ export class GdeltClient {
         query: paramsOrQuery,
         ...options
       };
-    } else if (typeof paramsOrQuery === 'object' && 'query' in paramsOrQuery) {
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
       finalParams = paramsOrQuery;
     } else {
       throw new Error('Invalid parameters: expected object with query property or query string');
@@ -562,7 +562,7 @@ export class GdeltClient {
         query: paramsOrQuery,
         ...options
       };
-    } else if (typeof paramsOrQuery === 'object' && 'query' in paramsOrQuery) {
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
       finalParams = paramsOrQuery;
     } else {
       throw new Error('Invalid parameters: expected object with query property or query string');
