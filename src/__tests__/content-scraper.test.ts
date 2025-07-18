@@ -13,22 +13,6 @@ const mockAxios: any = {
 jest.mock('axios', () => mockAxios);
 jest.mock('../utils/rate-limiter');
 
-// Create proper mock for robots-txt-parser
-const mockRobotsParser = {
-  canFetch: jest.fn().mockReturnValue(true),
-  getSitemaps: jest.fn().mockReturnValue([])
-};
-
-const mockRobotsTxt = {
-  useRobotsTxt: jest.fn(),
-  fetch: jest.fn().mockResolvedValue(mockRobotsParser)
-};
-
-// Mock robots-txt-parser
-jest.mock('robots-txt-parser', () => {
-  return jest.fn().mockImplementation(() => mockRobotsTxt);
-});
-
 import { ContentScraper } from '../utils/content-scraper';
 import { RateLimiter } from '../utils/rate-limiter';
 
@@ -78,76 +62,54 @@ describe('ContentScraper', () => {
 
   describe('checkRobotsTxt', () => {
     it('should return true when robots.txt allows access', async () => {
-      const mockRobotsParser = {
-        canFetch: jest.fn().mockReturnValue(true),
-        getSitemaps: jest.fn().mockReturnValue([])
-      };
+      // Mock axios to return a robots.txt that allows access
+      mockAxios.get.mockResolvedValueOnce({
+        data: 'User-agent: *\nAllow: /'
+      });
 
-      const mockRobotsTxt = {
-        fetch: jest.fn().mockResolvedValue(mockRobotsParser)
-      };
-
-      const robotsTxtParser = require('robots-txt-parser');
-      robotsTxtParser.mockReturnValue(mockRobotsTxt);
-
-      const result = await scraper.checkRobotsTxt('https://example.com/article');
+      const result = await scraper.checkRobotsTxt('example.com');
       
       expect(result).toBe(true);
-      expect(mockRobotsTxt.fetch).toHaveBeenCalledWith('https://example.com/robots.txt');
+      expect(mockAxios.get).toHaveBeenCalledWith('https://example.com/robots.txt', expect.any(Object));
     });
 
     it('should return false when robots.txt disallows access', async () => {
-      const mockRobotsParser = {
-        canFetch: jest.fn().mockReturnValue(false),
-        getSitemaps: jest.fn().mockReturnValue([])
-      };
+      // Mock axios to return a robots.txt that disallows access
+      mockAxios.get.mockResolvedValueOnce({
+        data: 'User-agent: *\nDisallow: /'
+      });
 
-      const mockRobotsTxt = {
-        fetch: jest.fn().mockResolvedValue(mockRobotsParser)
-      };
-
-      const robotsTxtParser = require('robots-txt-parser');
-      robotsTxtParser.mockReturnValue(mockRobotsTxt);
-
-      const result = await scraper.checkRobotsTxt('https://restricted.com/article');
+      const result = await scraper.checkRobotsTxt('restricted.com');
       
       expect(result).toBe(false);
     });
 
     it('should return true when robots.txt fetch fails', async () => {
-      const mockRobotsTxt = {
-        fetch: jest.fn().mockRejectedValue(new Error('Robots.txt not found'))
-      };
+      // Mock axios to fail when fetching robots.txt
+      mockAxios.get.mockRejectedValueOnce(new Error('Network error'));
 
-      const robotsTxtParser = require('robots-txt-parser');
-      robotsTxtParser.mockReturnValue(mockRobotsTxt);
-
-      const result = await scraper.checkRobotsTxt('https://example.com/article');
+      const result = await scraper.checkRobotsTxt('example.com');
       
       expect(result).toBe(true); // Should allow access when robots.txt unavailable
     });
 
     it('should cache robots.txt results', async () => {
-      const mockRobotsParser = {
-        canFetch: jest.fn().mockReturnValue(true),
-        getSitemaps: jest.fn().mockReturnValue([])
-      };
-
-      const mockRobotsTxt = {
-        fetch: jest.fn().mockResolvedValue(mockRobotsParser)
-      };
-
-      const robotsTxtParser = require('robots-txt-parser');
-      robotsTxtParser.mockReturnValue(mockRobotsTxt);
+      // Reset mocks to ensure clean state
+      mockAxios.get.mockReset();
+      
+      // Mock axios for the first call
+      mockAxios.get.mockResolvedValueOnce({
+        data: 'User-agent: *\nAllow: /'
+      });
 
       // First call
-      await scraper.checkRobotsTxt('https://example.com/article1');
+      await scraper.checkRobotsTxt('example.com');
       
       // Second call to same domain
-      await scraper.checkRobotsTxt('https://example.com/article2');
+      await scraper.checkRobotsTxt('example.com');
       
       // Should only fetch robots.txt once
-      expect(mockRobotsTxt.fetch).toHaveBeenCalledTimes(1);
+      expect(mockAxios.get).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -226,17 +188,9 @@ describe('ContentScraper', () => {
   describe('getRobotsCacheSize', () => {
     it('should return the size of robots cache', async () => {
       // First, populate the cache
-      const mockRobotsParser = {
-        canFetch: jest.fn().mockReturnValue(true),
-        getSitemaps: jest.fn().mockReturnValue([])
-      };
-
-      const mockRobotsTxt = {
-        fetch: jest.fn().mockResolvedValue(mockRobotsParser)
-      };
-
-      const robotsTxtParser = require('robots-txt-parser');
-      robotsTxtParser.mockReturnValue(mockRobotsTxt);
+      mockAxios.get.mockResolvedValueOnce({
+        data: 'User-agent: *\nAllow: /'
+      });
 
       // Call checkRobotsTxt to populate the cache
       await scraper.checkRobotsTxt('example.com');
@@ -250,17 +204,9 @@ describe('ContentScraper', () => {
   describe('clearRobotsCache', () => {
     it('should clear the robots cache', async () => {
       // First, populate the cache
-      const mockRobotsParser = {
-        canFetch: jest.fn().mockReturnValue(true),
-        getSitemaps: jest.fn().mockReturnValue([])
-      };
-
-      const mockRobotsTxt = {
-        fetch: jest.fn().mockResolvedValue(mockRobotsParser)
-      };
-
-      const robotsTxtParser = require('robots-txt-parser');
-      robotsTxtParser.mockReturnValue(mockRobotsTxt);
+      mockAxios.get.mockResolvedValueOnce({
+        data: 'User-agent: *\nAllow: /'
+      });
 
       // Call checkRobotsTxt to populate the cache
       await scraper.checkRobotsTxt('example.com');
