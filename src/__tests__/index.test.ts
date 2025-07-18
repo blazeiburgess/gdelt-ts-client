@@ -7,12 +7,7 @@ import {
   EnhancedGdeltClient, 
   createEnhancedGdeltClient,
   EFormat,
-  EMode,
-  CountryCode,
-  LanguageCode,
-  GKGTheme,
-  ImageTag,
-  ImageWebTag
+  EMode
 } from '../index';
 
 describe('Index exports', () => {
@@ -26,8 +21,8 @@ describe('Index exports', () => {
 
   it('should export lookup types', () => {
     // Test that type exports work at runtime (these are just type checks)
-    expect(typeof EFormat.JSON).toBe('string');
-    expect(typeof EMode.ARTICLE_LIST).toBe('string');
+    expect(typeof EFormat.json).toBe('string');
+    expect(typeof EMode.articleList).toBe('string');
   });
 
   it('should create client with factory function', () => {
@@ -39,7 +34,7 @@ describe('Index exports', () => {
     const config = {
       timeout: 5000,
       retry: false,
-      defaultFormat: EFormat.JSON
+      defaultFormat: EFormat.json
     };
     const client = createEnhancedGdeltClient(config);
     expect(client).toBeInstanceOf(GdeltClient);
