@@ -2,8 +2,6 @@
  * Content fetcher service with concurrent processing and retry logic
  */
 
-// import axios from 'axios';
-import pLimit from 'p-limit';
 import { ContentScraper } from '../utils/content-scraper';
 import { ContentParserService } from './content-parser';
 import { IContentFetcherConfig, IFetchContentOptions } from '../interfaces/content-fetcher';
@@ -145,8 +143,9 @@ export class ContentFetcherService {
     urls: string[],
     options?: IFetchContentOptions
   ): Promise<IArticleContentResult[]> {
-    const concurrencyLimit = options?.concurrencyLimit || this._config.concurrencyLimit || 5;
-    const limit = pLimit(concurrencyLimit);
+    // const concurrencyLimit = options?.concurrencyLimit || this._config.concurrencyLimit || 5;
+    // const limit = pLimit(concurrencyLimit);
+    const limit = async (fn: () => Promise<any>) => fn();
     const results: IArticleContentResult[] = [];
 
     // Group URLs by domain for better rate limiting
@@ -156,7 +155,7 @@ export class ContentFetcherService {
     for (const [, domainUrls] of Object.entries(urlsByDomain)) {
       // Process URLs for this domain with concurrency control
       const domainResults = await Promise.all(
-        domainUrls.map(url => limit(async () => {
+        domainUrls.map(async url => limit(async () => {
           const result = await this.fetchArticleContent(url, options);
           completed++;
           
