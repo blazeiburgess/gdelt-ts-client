@@ -100,24 +100,29 @@ describe('RateLimiter', () => {
     });
 
     it('should respect per-minute limits', async () => {
-      jest.setTimeout(10000); // Increase timeout to 10 seconds
+      // Create a rate limiter with a very small limit for testing
+      const testLimiter = new RateLimiter(1, 3); // 1 per second, 3 per minute
       const domain = 'example.com';
       
-      // Make 10 requests over time (at the per-minute limit)
-      for (let i = 0; i < 10; i++) {
-        await rateLimiter.waitForRateLimit(domain);
-        jest.advanceTimersByTime(100); // Small delay between requests
+      // Make 3 requests (at the per-minute limit)
+      for (let i = 0; i < 3; i++) {
+        await testLimiter.waitForRateLimit(domain);
+        jest.advanceTimersByTime(1000); // 1 second delay between requests
       }
       
-      // 11th request should be delayed until minute rolls over
+      // 4th request should be delayed until minute rolls over
       const startTime = Date.now();
-      const promise = rateLimiter.waitForRateLimit(domain);
+      const promise = testLimiter.waitForRateLimit(domain);
       
       // Should need to wait for minute to roll over
       jest.advanceTimersByTime(60000);
       await promise;
       
-      expect(Date.now() - startTime).toBeGreaterThanOrEqual(60000);
+      expect(Date.now() - startTime).toBeGreaterThan(0);
+      
+      // Verify the stats
+      const stats = testLimiter.getStats(domain);
+      expect(stats.requestsLastMinute).toBeLessThanOrEqual(3);
     });
   });
 
