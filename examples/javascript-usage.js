@@ -1,12 +1,11 @@
 /**
  * JavaScript usage example for the GDELT API client
- * 
+ *
  * This example demonstrates how to use the client in a JavaScript project,
  * showing the TypeScript and JavaScript interoperability.
  */
+import {ETimespanUnit, GdeltClient, EFormat} from 'gdelt-ts-client';
 
-// Import the client from the compiled JavaScript
-const { GdeltClient, ETimespanUnit, EFormat, EMode } = require('../dist');
 
 // Create a new client with default configuration
 const client = new GdeltClient();
