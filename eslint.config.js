@@ -1,9 +1,9 @@
-import eslint from '@eslint/js';
-import tseslintPlugin from '@typescript-eslint/eslint-plugin';
-import tseslintParser from '@typescript-eslint/parser';
-import globals from 'globals';
+const eslint = require('@eslint/js');
+const tseslintPlugin = require('@typescript-eslint/eslint-plugin');
+const tseslintParser = require('@typescript-eslint/parser');
+const globals = require('globals');
 
-export default [
+module.exports = [
   eslint.configs.recommended,
   {
     files: ['**/*.ts', '**/*.tsx'],
