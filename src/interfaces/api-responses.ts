@@ -237,14 +237,9 @@ export interface ITimelineBreakdownResponse extends IGdeltApiResponse {
  */
 export interface IToneBin {
   /**
-   * The lower bound of the tone bin
+   * The tone bin value
    */
-  min: number;
-
-  /**
-   * The upper bound of the tone bin
-   */
-  max: number;
+  bin: number;
 
   /**
    * The number of articles in this tone bin
@@ -252,9 +247,19 @@ export interface IToneBin {
   count: number;
 
   /**
-   * The top 10 most relevant articles in this tone bin
+   * The top articles in this tone bin
    */
-  articles?: IArticle[];
+  toparts: {
+    /**
+     * The URL of the article
+     */
+    url: string;
+
+    /**
+     * The title of the article
+     */
+    title: string;
+  }[];
 }
 
 /**
@@ -262,9 +267,9 @@ export interface IToneBin {
  */
 export interface IToneChartResponse extends IGdeltApiResponse {
   /**
-   * The tone bins
+   * The tone chart data
    */
-  bins: IToneBin[];
+  tonechart: IToneBin[];
 }
 
 /**

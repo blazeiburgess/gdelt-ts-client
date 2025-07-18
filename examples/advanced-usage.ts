@@ -41,7 +41,7 @@ async function complexQuery(): Promise<void> {
     
     // Print the articles with their tone scores
     response.articles.forEach((article, index) => {
-      console.log(`${index + 1}. [${article.tone?.toFixed(2) || 'N/A'}] ${article.title}`);
+      console.log(`${index + 1}. [${article.tone?.toFixed(2) ?? 'N/A'}] ${article.title}`);
       console.log(`   Source: ${article.domain} (${article.sourcecountry})`);
       console.log(`   Date: ${formatDate(article.seendate)}`);
       console.log('---');
@@ -71,7 +71,7 @@ async function compareLanguageCoverage(): Promise<void> {
       // Get the most recent data point
       const latestDataPoint = response.timeline[response.timeline.length - 1];
       
-      if (latestDataPoint && latestDataPoint.values) {
+      if (latestDataPoint?.values) {
         // Sort languages by coverage percentage (descending)
         const sortedLanguages = Object.entries(latestDataPoint.values)
           .sort((a, b) => b[1] - a[1])
@@ -81,7 +81,7 @@ async function compareLanguageCoverage(): Promise<void> {
         console.log(`Date: ${latestDataPoint.date}`);
         sortedLanguages.forEach(([language, percentage], index) => {
           // Find the language name from the labels array
-          const languageName = response.labels?.find(label => label.startsWith(language + ':'))?.split(':')[1] || language;
+          const languageName = response.labels?.find(label => label.startsWith(language + ':'))?.split(':')[1] ?? language;
           console.log(`${index + 1}. ${languageName}: ${percentage.toFixed(4)}%`);
         });
       } else {
@@ -104,18 +104,18 @@ async function analyzeToneDistribution(): Promise<void> {
   try {
     // Get a tone chart for coverage about artificial intelligence
     const response = await client.getToneChart({
-      query: '("artificial intelligence" OR "machine learning" OR "deep learning" OR "AI")',
+      query: '("artificial intelligence" OR "machine learning" OR "deep learning" OR "neural networks" OR "computer vision")',
       timespan: client.createTimespan(2, ETimespanUnit.weeks)
     });
 
     console.log('Tone distribution for AI coverage:');
     
     // Group tone bins into categories
-    const veryNegative = response.bins.filter(bin => bin.min < -10);
-    const negative = response.bins.filter(bin => bin.min >= -10 && bin.min < -2);
-    const neutral = response.bins.filter(bin => bin.min >= -2 && bin.max <= 2);
-    const positive = response.bins.filter(bin => bin.max > 2 && bin.max <= 10);
-    const veryPositive = response.bins.filter(bin => bin.max > 10);
+    const veryNegative = response.tonechart.filter(bin => bin.bin < -10);
+    const negative = response.tonechart.filter(bin => bin.bin >= -10 && bin.bin < -2);
+    const neutral = response.tonechart.filter(bin => bin.bin >= -2 && bin.bin <= 2);
+    const positive = response.tonechart.filter(bin => bin.bin > 2 && bin.bin <= 10);
+    const veryPositive = response.tonechart.filter(bin => bin.bin > 10);
     
     // Calculate total articles in each category
     const veryNegativeCount = veryNegative.reduce((sum, bin) => sum + bin.count, 0);
@@ -125,7 +125,7 @@ async function analyzeToneDistribution(): Promise<void> {
     const veryPositiveCount = veryPositive.reduce((sum, bin) => sum + bin.count, 0);
     
     // Calculate total articles
-    const totalCount = response.bins.reduce((sum, bin) => sum + bin.count, 0);
+    const totalCount = response.tonechart.reduce((sum, bin) => sum + bin.count, 0);
     
     // Print the distribution
     console.log(`Very Negative (< -10): ${veryNegativeCount} (${percentage(veryNegativeCount, totalCount)}%)`);
@@ -135,25 +135,25 @@ async function analyzeToneDistribution(): Promise<void> {
     console.log(`Very Positive (> 10): ${veryPositiveCount} (${percentage(veryPositiveCount, totalCount)}%)`);
     
     // If there are articles in the very positive or very negative categories, show examples
-    if (veryPositiveCount > 0 && veryPositive[0]?.articles && veryPositive[0].articles.length > 0) {
+    if (veryPositiveCount > 0 && veryPositive[0]?.toparts && veryPositive[0].toparts.length > 0) {
       console.log('\nExample of very positive article:');
-      const article = veryPositive[0].articles[0];
+      const article = veryPositive[0].toparts[0];
       if (article) {
         console.log(`Title: ${article.title || 'N/A'}`);
-        console.log(`Source: ${article.domain || 'N/A'}`);
-        console.log(`Tone: ${article.tone || 'N/A'}`);
+        console.log(`URL: ${article.url || 'N/A'}`);
+        console.log(`Tone: ~${veryPositive[0].bin}`);
       } else {
         console.log('Article details not available');
       }
     }
     
-    if (veryNegativeCount > 0 && veryNegative[0]?.articles && veryNegative[0].articles.length > 0) {
+    if (veryNegativeCount > 0 && veryNegative[0]?.toparts && veryNegative[0].toparts.length > 0) {
       console.log('\nExample of very negative article:');
-      const article = veryNegative[0].articles[0];
+      const article = veryNegative[0].toparts[0];
       if (article) {
         console.log(`Title: ${article.title || 'N/A'}`);
-        console.log(`Source: ${article.domain || 'N/A'}`);
-        console.log(`Tone: ${article.tone || 'N/A'}`);
+        console.log(`URL: ${article.url || 'N/A'}`);
+        console.log(`Tone: ~${veryNegative[0].bin}`);
       } else {
         console.log('Article details not available');
       }
@@ -179,7 +179,7 @@ async function errorHandlingExample(): Promise<void> {
     if (error instanceof Error) {
       console.error(`- Message: ${error.message}`);
     } else {
-      console.error(`- Unknown error: ${error}`);
+      console.error(`- Unknown error: ${String(error)}`);
     }
     
     console.log('\nNow trying with a valid query:');
