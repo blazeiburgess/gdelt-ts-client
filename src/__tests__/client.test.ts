@@ -710,7 +710,7 @@ describe('GdeltClient', () => {
   });
 
   describe('configuration testing', () => {
-    it('should respect custom timeout settings', async () => {
+    it('should respect custom timeout settings', () => {
       const customClient = new GdeltClient({
         timeout: 5000
       });
