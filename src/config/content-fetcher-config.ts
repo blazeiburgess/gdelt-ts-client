@@ -52,7 +52,7 @@ export function createDefaultContentFetcherConfig(): IContentFetcherConfig {
   return {
     concurrencyLimit: parseIntWithFallback(env['GDELT_CLIENT_CONCURRENCY_LIMIT'], 3),
     requestDelay: parseIntWithFallback(env['GDELT_CLIENT_REQUEST_DELAY'], 500),
-    userAgent: env['GDELT_CLIENT_USER_AGENT'] || 'Unofficial-GDELT-TS-Client/1.0.0',
+    userAgent: env['GDELT_CLIENT_USER_AGENT'] ?? 'Unofficial-GDELT-TS-Client/1.0.0',
     timeout: parseIntWithFallback(env['GDELT_CLIENT_TIMEOUT'], 30000),
     maxRetries: parseIntWithFallback(env['GDELT_CLIENT_MAX_RETRIES'], 3),
     maxRequestsPerSecond: parseIntWithFallback(env['GDELT_CLIENT_MAX_REQUESTS_PER_SECOND'], 1),
@@ -60,7 +60,7 @@ export function createDefaultContentFetcherConfig(): IContentFetcherConfig {
     respectRobotsTxt: env['GDELT_CLIENT_RESPECT_ROBOTS_TXT'] !== 'false',
     followRedirects: env['GDELT_CLIENT_FOLLOW_REDIRECTS'] !== 'false',
     maxRedirects: parseIntWithFallback(env['GDELT_CLIENT_MAX_REDIRECTS'], 5),
-    skipDomains: env['GDELT_CLIENT_SKIP_DOMAINS']?.split(',') || [],
+    skipDomains: env['GDELT_CLIENT_SKIP_DOMAINS']?.split(',') ?? [],
     customHeaders: parseCustomHeaders(env['GDELT_CLIENT_CUSTOM_HEADERS']),
     retryableStatusCodes: [408, 429, 500, 502, 503, 504]
   };
