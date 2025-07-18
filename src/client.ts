@@ -1001,6 +1001,11 @@ export class GdeltClient {
     articles: IArticle[],
     contentResults: IArticleContentResult[]
   ): IArticleWithContent[] {
+    // If there are no articles or no content results, return empty array
+    if (!articles.length || !contentResults?.length) {
+      return [];
+    }
+    
     const articlesWithContent: IArticleWithContent[] = [];
     const resultMap = new Map<string, IArticleContentResult>();
     
@@ -1015,7 +1020,7 @@ export class GdeltClient {
       if (contentResult) {
         const articleWithContent: IArticleWithContent = {
           ...article,
-          content: contentResult.success ? contentResult.content || null : null
+          content: contentResult.success ? (contentResult.content ?? null) : null
         };
         
         if (!contentResult.success && contentResult.error) {
@@ -1061,13 +1066,13 @@ export class GdeltClient {
     
     const totalWords = contentResults
       .filter(r => r.success && r.content)
-      .reduce((sum, r) => sum + (r.content?.wordCount || 0), 0);
+      .reduce((sum, r) => sum + (r.content?.wordCount ?? 0), 0);
     
     const failureReasons: Record<string, number> = {};
     for (const result of contentResults) {
       if (!result.success && result.error) {
         const reason = result.error.code || 'UNKNOWN';
-        failureReasons[reason] = (failureReasons[reason] || 0) + 1;
+        failureReasons[reason] = (failureReasons[reason] ?? 0) + 1;
       }
     }
     
