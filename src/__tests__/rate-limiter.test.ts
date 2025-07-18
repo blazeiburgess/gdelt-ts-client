@@ -178,4 +178,107 @@ describe('RateLimiter', () => {
       expect(rateLimiter.getStats('test.com').requestsLastSecond).toBe(0);
     });
   });
+
+  describe('getRequestCount', () => {
+    it('should return correct request counts', async () => {
+      const domain = 'example.com';
+      
+      await rateLimiter.waitForRateLimit(domain);
+      await rateLimiter.waitForRateLimit(domain);
+      
+      const counts = rateLimiter.getRequestCount(domain);
+      
+      expect(counts.perSecond).toBe(2);
+      expect(counts.perMinute).toBe(2);
+    });
+
+    it('should return zero counts for unknown domain', () => {
+      const counts = rateLimiter.getRequestCount('unknown.com');
+      
+      expect(counts.perSecond).toBe(0);
+      expect(counts.perMinute).toBe(0);
+    });
+  });
+
+  describe('resetDomain', () => {
+    it('should reset rate limits for a specific domain', async () => {
+      const domain1 = 'example.com';
+      const domain2 = 'test.com';
+      
+      await rateLimiter.waitForRateLimit(domain1);
+      await rateLimiter.waitForRateLimit(domain2);
+      
+      rateLimiter.resetDomain(domain1);
+      
+      expect(rateLimiter.getRequestCount(domain1).perSecond).toBe(0);
+      expect(rateLimiter.getRequestCount(domain2).perSecond).toBe(1);
+    });
+  });
+
+  describe('resetAll', () => {
+    it('should reset rate limits for all domains', async () => {
+      const domain1 = 'example.com';
+      const domain2 = 'test.com';
+      
+      await rateLimiter.waitForRateLimit(domain1);
+      await rateLimiter.waitForRateLimit(domain2);
+      
+      rateLimiter.resetAll();
+      
+      expect(rateLimiter.getRequestCount(domain1).perSecond).toBe(0);
+      expect(rateLimiter.getRequestCount(domain2).perSecond).toBe(0);
+    });
+  });
+
+  describe('getConfig', () => {
+    it('should return the rate limiter configuration', () => {
+      const config = rateLimiter.getConfig();
+      
+      expect(config.maxRequestsPerSecond).toBe(2);
+      expect(config.maxRequestsPerMinute).toBe(10);
+    });
+  });
+
+  describe('isRateLimited', () => {
+    it('should return false when domain is not rate limited', () => {
+      const domain = 'example.com';
+      
+      expect(rateLimiter.isRateLimited(domain)).toBe(false);
+    });
+
+    it('should return true when domain exceeds per-second limit', async () => {
+      const domain = 'example.com';
+      
+      await rateLimiter.waitForRateLimit(domain);
+      await rateLimiter.waitForRateLimit(domain);
+      
+      expect(rateLimiter.isRateLimited(domain)).toBe(true);
+    });
+
+    it('should return true when domain exceeds per-minute limit', async () => {
+      // Create a rate limiter with a very small limit for testing
+      const testLimiter = new RateLimiter(10, 3); // 10 per second, 3 per minute
+      const domain = 'example.com';
+      
+      // Make 3 requests (at the per-minute limit)
+      for (let i = 0; i < 3; i++) {
+        await testLimiter.waitForRateLimit(domain);
+      }
+      
+      expect(testLimiter.isRateLimited(domain)).toBe(true);
+    });
+
+    it('should handle unknown domains', () => {
+      expect(rateLimiter.isRateLimited('unknown.com')).toBe(false);
+    });
+
+    it('should normalize domain names', async () => {
+      const domain = 'Example.Com';
+      
+      await rateLimiter.waitForRateLimit(domain.toLowerCase());
+      await rateLimiter.waitForRateLimit(domain.toLowerCase());
+      
+      expect(rateLimiter.isRateLimited(domain)).toBe(true);
+    });
+  });
 });
