@@ -3,6 +3,7 @@
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/unbound-method */
 
 import { GdeltClient } from '../client';
 import { EMode, EFormat } from '../constants';
@@ -17,8 +18,8 @@ describe('GdeltClient Content Integration', () => {
   let mockContentFetcher: jest.Mocked<ContentFetcherService>;
 
   beforeEach(() => {
-    const MockContentFetcher = ContentFetcherService as jest.MockedClass<typeof ContentFetcherService>;
-    mockContentFetcher = new MockContentFetcher() as jest.Mocked<ContentFetcherService>;
+    const mockContentFetcherClass = ContentFetcherService as jest.MockedClass<typeof ContentFetcherService>;
+    mockContentFetcher = new mockContentFetcherClass() as jest.Mocked<ContentFetcherService>;
     
     client = new GdeltClient({
       baseUrl: 'https://api.gdeltproject.org/api/v2/doc/doc',
