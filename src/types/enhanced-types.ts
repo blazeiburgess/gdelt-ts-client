@@ -359,7 +359,11 @@ export type ValidatedDateTime = string & { readonly __brand: 'ValidatedDateTime'
  * Type predicate for validating timespan format
  */
 export function isValidTimespan(value: string): value is TimespanString {
-  return /^\d+(min|h|d|w|m)$/.test(value);
+  const match = /^(\d+)(min|h|d|w|m)$/.exec(value);
+  if (!match) return false;
+  
+  const number = parseInt(match[1]!, 10);
+  return number > 0; // Zero values are not valid
 }
 
 /**
