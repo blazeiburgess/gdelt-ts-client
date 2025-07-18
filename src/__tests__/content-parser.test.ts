@@ -39,10 +39,13 @@ describe('ContentParserService', () => {
   let service: ContentParserService;
 
   beforeEach(() => {
+    // Create a prototype spy for _stripHtml before instantiating the service
+    jest.spyOn(ContentParserService.prototype, '_stripHtml' as any)
+      .mockImplementation(() => 'Mock text content');
+    
     service = new ContentParserService();
     
-    // Mock the private methods that are used in the service
-    (service as any)._stripHtml = jest.fn().mockReturnValue('Mock text content');
+    // Mock other private methods
     (service as any)._countWords = jest.fn().mockReturnValue(100);
     (service as any)._detectLanguage = jest.fn().mockReturnValue('en');
     (service as any)._extractDateFromMetadata = jest.fn().mockReturnValue('2023-01-01');
