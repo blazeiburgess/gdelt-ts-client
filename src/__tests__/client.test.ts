@@ -13,9 +13,26 @@ describe('GdeltClient', () => {
     // Reset axios mocks
     mockedAxios.create.mockClear();
     
-    // Create a mock get function
-    mockGet = jest.fn().mockResolvedValue({
-      data: { status: 'ok', articles: [], count: 0 }
+    // Create a mock get function with default response
+    mockGet = jest.fn().mockImplementation(async (url, options) => {
+      // Check if this is a tone chart request
+      if (options?.params?.mode === 'tonechart') {
+        return Promise.resolve({
+          data: { 
+            status: 'ok', 
+            tonechart: [
+              { bin: -10, count: 5, toparts: [] },
+              { bin: 0, count: 10, toparts: [] },
+              { bin: 10, count: 3, toparts: [] }
+            ]
+          }
+        });
+      }
+      
+      // Default response for other requests
+      return Promise.resolve({
+        data: { status: 'ok', articles: [], count: 0 }
+      });
     });
     
     // Mock axios.create to return an object with a get method
