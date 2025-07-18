@@ -3,6 +3,7 @@
  */
 
 import { GdeltClient } from '../client';
+import { TimespanUnitType } from '../types/enhanced-types';
 
 // Mock axios to avoid actual API calls
 jest.mock('axios');
@@ -28,11 +29,11 @@ describe('Client Method Overloads and Edge Cases', () => {
         get: jest.fn().mockResolvedValue(mockResponse)
       });
 
-      await expect(client.getImages(null as any)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
+      await expect(client.getImages(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
     it('should handle object without query property', async () => {
-      await expect(client.getImages({ maxrecords: 10 } as any)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
+      await expect(client.getImages({ maxrecords: 10 } as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
   });
 
@@ -49,11 +50,11 @@ describe('Client Method Overloads and Edge Cases', () => {
         get: jest.fn().mockResolvedValue(mockResponse)
       });
 
-      await expect(client.getTimeline(null as any)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
+      await expect(client.getTimeline(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
     it('should handle object without query property', async () => {
-      await expect(client.getTimeline({ maxrecords: 10 } as any)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
+      await expect(client.getTimeline({ maxrecords: 10 } as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
   });
 
@@ -70,11 +71,11 @@ describe('Client Method Overloads and Edge Cases', () => {
         get: jest.fn().mockResolvedValue(mockResponse)
       });
 
-      await expect(client.getTimelineWithArticles(null as any)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
+      await expect(client.getTimelineWithArticles(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
     it('should handle object without query property', async () => {
-      await expect(client.getTimelineWithArticles({ maxrecords: 10 } as any)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
+      await expect(client.getTimelineWithArticles({ maxrecords: 10 } as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
   });
 
@@ -91,11 +92,11 @@ describe('Client Method Overloads and Edge Cases', () => {
         get: jest.fn().mockResolvedValue(mockResponse)
       });
 
-      await expect(client.getTimelineTone(null as any)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
+      await expect(client.getTimelineTone(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
     it('should handle object without query property', async () => {
-      await expect(client.getTimelineTone({ maxrecords: 10 } as any)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
+      await expect(client.getTimelineTone({ maxrecords: 10 } as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
   });
 
@@ -112,7 +113,7 @@ describe('Client Method Overloads and Edge Cases', () => {
         get: jest.fn().mockResolvedValue(mockResponse)
       });
 
-      await expect(client.getToneChart({ maxrecords: 10 } as any)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
+      await expect(client.getToneChart({ maxrecords: 10 } as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
     it('should handle valid object with query property', async () => {
@@ -247,18 +248,18 @@ describe('Client Method Overloads and Edge Cases', () => {
 
   describe('createTimespan enhanced validation', () => {
     it('should validate enhanced timespan with valid units', () => {
-      const timespan = client.createTimespan(7, 'd' as any);
+      const timespan = client.createTimespan(7, 'd' as unknown as TimespanUnitType);
       expect(timespan).toBe('7d');
     });
 
     it('should throw error for invalid enhanced timespan', () => {
       expect(() => {
-        client.createTimespan(0, 'd' as any);
+        client.createTimespan(0, 'd' as unknown as TimespanUnitType);
       }).toThrow('Invalid timespan format: 0d');
     });
 
     it('should handle non-enhanced timespan units', () => {
-      const timespan = client.createTimespan(7, 'invalid' as any);
+      const timespan = client.createTimespan(7, 'invalid' as unknown as TimespanUnitType);
       expect(timespan).toBe('7invalid');
     });
   });
