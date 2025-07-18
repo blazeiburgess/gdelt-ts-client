@@ -491,7 +491,7 @@ export function getCountryName(code: CountryCode): string {
  */
 export function getCountryCode(name: string): CountryCode | undefined {
   const normalizedName = name.toLowerCase().replace(/\s+/g, '');
-  const entry = Object.entries(CountryLookup).find(([_, countryName]) => 
+  const entry = Object.entries(CountryLookup).find(([, countryName]) => 
     countryName.toLowerCase().replace(/\s+/g, '') === normalizedName
   );
   return entry?.[0] as CountryCode;
@@ -520,7 +520,7 @@ export function getLanguageName(code: LanguageCode): string {
  */
 export function getLanguageCode(name: string): LanguageCode | undefined {
   const normalizedName = name.toLowerCase().replace(/\s+/g, '');
-  const entry = Object.entries(LanguageLookup).find(([_, langName]) => 
+  const entry = Object.entries(LanguageLookup).find(([, langName]) => 
     langName.toLowerCase().replace(/\s+/g, '') === normalizedName
   );
   return entry?.[0] as LanguageCode;
@@ -543,7 +543,7 @@ export function isValidLanguage(value: string): boolean {
 export function searchCountries(partialName: string): Array<{code: CountryCode; name: string}> {
   const searchTerm = partialName.toLowerCase();
   return Object.entries(CountryLookup)
-    .filter(([_, name]) => name.toLowerCase().includes(searchTerm))
+    .filter(([, name]) => name.toLowerCase().includes(searchTerm))
     .map(([code, name]) => ({ code: code as CountryCode, name }))
     .slice(0, 10); // Limit to 10 results
 }
@@ -554,7 +554,7 @@ export function searchCountries(partialName: string): Array<{code: CountryCode; 
 export function searchLanguages(partialName: string): Array<{code: LanguageCode; name: string}> {
   const searchTerm = partialName.toLowerCase();
   return Object.entries(LanguageLookup)
-    .filter(([_, name]) => name.toLowerCase().includes(searchTerm))
+    .filter(([, name]) => name.toLowerCase().includes(searchTerm))
     .map(([code, name]) => ({ code: code as LanguageCode, name }))
     .slice(0, 10); // Limit to 10 results
 }
