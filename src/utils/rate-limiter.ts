@@ -72,7 +72,7 @@ export class RateLimiter {
    */
   public getRequestCount(domain: string): { perSecond: number; perMinute: number } {
     const normalizedDomain = domain.toLowerCase();
-    const requestHistory = this._requests.get(normalizedDomain) || [];
+    const requestHistory = this._requests.get(normalizedDomain) ?? [];
     const now = Date.now();
     
     const oneSecondAgo = now - 1000;
@@ -118,7 +118,7 @@ export class RateLimiter {
    */
   public isRateLimited(domain: string): boolean {
     const normalizedDomain = domain.toLowerCase();
-    const requestHistory = this._requests.get(normalizedDomain) || [];
+    const requestHistory = this._requests.get(normalizedDomain) ?? [];
     const now = Date.now();
     
     const oneSecondAgo = now - 1000;
