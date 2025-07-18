@@ -4,7 +4,7 @@
  * This example demonstrates how to create a client and make simple requests.
  */
 
-import { GdeltClient, ETimespanUnit } from '../dist';
+import { GdeltClient, ETimespanUnit, ITimelineResponse } from '../src';
 
 // Create a new client with default configuration
 const client = new GdeltClient();
@@ -43,7 +43,7 @@ async function getCovidTimeline(): Promise<void> {
     // Get a timeline of COVID-19 coverage over the last month
     const timespan = client.createTimespan(1, ETimespanUnit.months);
     
-    const response = await client.getTimeline({
+    const response: ITimelineResponse = await client.getTimeline({
       query: '(covid OR coronavirus OR "covid-19")',
       timespan,
       timelinesmooth: 3 // Apply smoothing to the timeline
@@ -51,28 +51,14 @@ async function getCovidTimeline(): Promise<void> {
 
     console.log('COVID-19 coverage timeline:');
     
-    // Check if timeline data exists and handle the nested structure
+    // Check if timeline data exists
     if (response.timeline && response.timeline.length > 0) {
-      // Check if the timeline has the new nested structure with 'data' property
-      // Use type assertion to handle the different response structure
-      const firstItem = response.timeline[0] as any;
-      
-      if (firstItem && firstItem.data && Array.isArray(firstItem.data)) {
-        // Handle the nested structure
-        const timelineData = firstItem.data;
-        timelineData.forEach((point: any) => {
-          if (point && typeof point.value === 'number' && point.date) {
-            console.log(`${point.date}: ${point.value.toFixed(4)}%`);
-          }
-        });
-      } else {
-        // Handle the original flat structure
-        response.timeline.forEach(point => {
-          if (point && typeof point.value === 'number' && point.date) {
-            console.log(`${point.date}: ${point.value.toFixed(4)}%`);
-          }
-        });
-      }
+      // Process the timeline data points
+      response.timeline.forEach(point => {
+        if (point && typeof point.value === 'number' && point.date) {
+          console.log(`${point.date}: ${point.value.toFixed(4)}%`);
+        }
+      });
     } else {
       console.log('No timeline data available');
     }
