@@ -7,6 +7,18 @@ import { ContentParserService } from './content-parser';
 import { IContentFetcherConfig, IFetchContentOptions } from '../interfaces/content-fetcher';
 import { IArticleContentResult, IArticleContent } from '../interfaces/content-responses';
 import { mergeContentFetcherConfig } from '../config/content-fetcher-config';
+import { AxiosResponse } from 'axios';
+
+/**
+ * Interface for error objects with response and code properties
+ */
+interface IRequestError {
+  response?: { 
+    status?: number 
+  };
+  code?: string;
+  message?: string;
+}
 
 export class ContentFetcherService {
   private readonly _contentScraper: ContentScraper;
@@ -118,10 +130,13 @@ export class ContentFetcherService {
         }
       };
       
-      const statusCode = this._getStatusCode(error);
+      // Cast error to the correct type
+      const typedError = error as Error | IRequestError;
+      
+      const statusCode = this._getStatusCode(typedError);
       result.error = {
         message: error instanceof Error ? error.message : 'Unknown error',
-        code: this._getErrorCode(error),
+        code: this._getErrorCode(typedError),
         retryCount
       };
       
@@ -143,7 +158,7 @@ export class ContentFetcherService {
     urls: string[],
     options?: IFetchContentOptions
   ): Promise<IArticleContentResult[]> {
-    const limit = async (fn: () => Promise<any>) => fn();
+    const limit = async (fn: () => Promise<IArticleContentResult>): Promise<IArticleContentResult> => fn();
     const results: IArticleContentResult[] = [];
 
     // Group URLs by domain for better rate limiting
@@ -208,7 +223,7 @@ export class ContentFetcherService {
    * @returns Promise that resolves to response
    * @private
    */
-  private async _fetchWithRetry(url: string, retryCount: number): Promise<any> {
+  private async _fetchWithRetry(url: string, retryCount: number): Promise<AxiosResponse> {
     const maxRetries = this._config.maxRetries ?? 2;
     const retryableStatusCodes = this._config.retryableStatusCodes ?? [408, 429, 500, 502, 503, 504];
 
@@ -216,7 +231,10 @@ export class ContentFetcherService {
       const response = await this._contentScraper.respectfulRequest(url, this._config.customHeaders);
       return response;
     } catch (error) {
-      const statusCode = this._getStatusCode(error);
+      // Cast error to the correct type
+      const typedError = error as Error | IRequestError;
+      
+      const statusCode = this._getStatusCode(typedError);
       
       if (retryCount < maxRetries && statusCode && retryableStatusCodes.includes(statusCode)) {
         retryCount++;
@@ -258,21 +276,26 @@ export class ContentFetcherService {
    * @returns Error code string
    * @private
    */
-  private _getErrorCode(error: any): string {
-    if (error?.code) {
+  private _getErrorCode(error: IRequestError | Error): string {
+    // Check if error has code property (IRequestError)
+    if ('code' in error && error.code) {
       return error.code;
     }
     
-    if (error?.response?.status) {
+    // Check if error has response property (IRequestError)
+    if ('response' in error && error.response?.status) {
       return `HTTP_${error.response.status}`;
     }
     
-    if (error?.message?.includes('timeout')) {
-      return 'TIMEOUT';
-    }
-    
-    if (error?.message?.includes('robots.txt')) {
-      return 'ROBOTS_DISALLOWED';
+    // Both Error and IRequestError have message property
+    if (error.message) {
+      if (error.message.includes('timeout')) {
+        return 'TIMEOUT';
+      }
+      
+      if (error.message.includes('robots.txt')) {
+        return 'ROBOTS_DISALLOWED';
+      }
     }
     
     return 'UNKNOWN';
@@ -284,8 +307,12 @@ export class ContentFetcherService {
    * @returns HTTP status code or undefined
    * @private
    */
-  private _getStatusCode(error: any): number | undefined {
-    return error?.response?.status;
+  private _getStatusCode(error: IRequestError | Error): number | undefined {
+    // Check if error has response property (IRequestError)
+    if ('response' in error && error.response?.status) {
+      return error.response.status;
+    }
+    return undefined;
   }
 
   /**
