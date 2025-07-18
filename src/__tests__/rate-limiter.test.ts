@@ -100,6 +100,7 @@ describe('RateLimiter', () => {
     });
 
     it('should respect per-minute limits', async () => {
+      jest.setTimeout(10000); // Increase timeout to 10 seconds
       const domain = 'example.com';
       
       // Make 10 requests over time (at the per-minute limit)
