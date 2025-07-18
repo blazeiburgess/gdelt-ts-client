@@ -134,7 +134,7 @@ export class ContentParserService {
     // Note: isProbablyReaderable() is not available in newer versions of Readability
     
     const article = reader.parse();
-    if (!article || !article.content || article.content.length < 200) {
+    if (!article?.content || article.content.length < 200) {
       return null;
     }
     
