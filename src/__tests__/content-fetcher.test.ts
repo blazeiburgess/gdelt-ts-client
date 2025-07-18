@@ -75,13 +75,26 @@ describe('ContentFetcherService', () => {
         qualityScore: 0.8
       } as any);
 
-      const result = await service.fetchArticleContent(mockUrl);
+      // Mock Date.now() to ensure timing values are non-zero
+      const originalDateNow = Date.now;
+      let callCount = 0;
+      Date.now = jest.fn(() => {
+        callCount++;
+        return callCount * 100; // Return increasing timestamps
+      });
 
-      expect(result.success).toBe(true);
-      expect(result.url).toBe(mockUrl);
-      expect(result.content).toBeDefined();
-      expect(result.content?.text).toBe('Test content');
-      expect(result.timing.totalTime).toBeGreaterThan(0);
+      try {
+        const result = await service.fetchArticleContent(mockUrl);
+
+        expect(result.success).toBe(true);
+        expect(result.url).toBe(mockUrl);
+        expect(result.content).toBeDefined();
+        expect(result.content?.text).toBe('Test content');
+        expect(result.timing.totalTime).toBeGreaterThan(0);
+      } finally {
+        // Restore original Date.now
+        Date.now = originalDateNow;
+      }
     });
 
     it('should handle failed content fetch', async () => {
