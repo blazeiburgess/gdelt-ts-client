@@ -28,8 +28,8 @@ jest.mock('@mozilla/readability', () => ({
     parse: jest.fn().mockReturnValue({
       title: 'Mock Title',
       byline: 'Mock Author',
-      content: '<p>Mock content from readability</p>',
-      textContent: 'Mock content from readability',
+      content: '<p>Mock text content</p>',
+      textContent: 'Mock text content',
       length: 500
     })
   }))
@@ -39,11 +39,27 @@ describe('ContentParserService', () => {
   let service: ContentParserService;
 
   beforeEach(() => {
-    // Create a prototype spy for _stripHtml before instantiating the service
-    jest.spyOn(ContentParserService.prototype, '_stripHtml' as any)
-      .mockImplementation(() => 'Mock text content');
-    
     service = new ContentParserService();
+    
+    // Mock the parseHTML method directly
+    jest.spyOn(service, 'parseHTML').mockImplementation(() => ({
+      text: 'Mock text content',
+      title: 'Mock Title',
+      author: 'Mock Author',
+      publishDate: '2023-01-01',
+      language: 'en',
+      wordCount: 100,
+      metadata: {
+        extractionMethod: 'readability',
+        extractionConfidence: 0.9,
+        openGraph: {},
+        twitterCard: {},
+        article: {},
+        canonicalUrl: ''
+      },
+      paywallDetected: false,
+      qualityScore: 0.8
+    }));
     
     // Mock other private methods
     (service as any)._countWords = jest.fn().mockReturnValue(100);
