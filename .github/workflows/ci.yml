@@ -3,8 +3,26 @@ name: CI
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'tsconfig.eslint.json'
+      - 'jest.config.cjs'
+      - 'eslint.config.js'
+      - '.github/workflows/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'tsconfig.eslint.json'
+      - 'jest.config.cjs'
+      - 'eslint.config.js'
+      - '.github/workflows/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
