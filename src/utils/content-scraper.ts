@@ -184,27 +184,56 @@ export class ContentScraper {
     const lines = robotsText.split('\n').map(line => line.trim().toLowerCase());
     let inRelevantSection = false;
     let currentUserAgent = '';
+    let foundAllowForRelevantSection = false;
+    let foundDisallowForRelevantSection = false;
+    let isBotSpecificSection = false;
     
+    // First pass: check for explicit rules for our user agent
     for (const line of lines) {
       if (line.startsWith('user-agent:')) {
         currentUserAgent = line.substring(11).trim();
+        // Check if this section is for a bot-specific user agent
+        isBotSpecificSection = currentUserAgent.includes('bot') || 
+                              currentUserAgent.includes('crawler') ||
+                              currentUserAgent.includes('gdelt');
+                              
+        // Check if this section applies to our user agent
         inRelevantSection = currentUserAgent === '*' || 
-                           currentUserAgent.includes('gdelt') ||
-                           currentUserAgent.includes('bot') ||
-                           currentUserAgent.includes('crawler');
-      } else if (line.startsWith('disallow:') && inRelevantSection) {
-        const path = line.substring(9).trim();
-        if (path === '/' || path === '') {
-          // Disallow all or empty path means disallow all
-          return false;
-        }
-      } else if (line.startsWith('allow:') && inRelevantSection) {
-        const path = line.substring(6).trim();
-        if (path === '/' || path === '') {
-          // Allow all or empty path means allow all
-          return true;
+                           this._userAgent.toLowerCase().includes(currentUserAgent) ||
+                           (isBotSpecificSection && (
+                             this._userAgent.toLowerCase().includes('bot') ||
+                             this._userAgent.toLowerCase().includes('crawler')
+                           ));
+      } else if (inRelevantSection) {
+        if (line.startsWith('disallow:')) {
+          const path = line.substring(9).trim();
+          if (path === '/' || path === '') {
+            // Disallow all or empty path means disallow all
+            foundDisallowForRelevantSection = true;
+            
+            // If this is a bot-specific section with a disallow rule, immediately return false
+            if (isBotSpecificSection) {
+              return false;
+            }
+          }
+        } else if (line.startsWith('allow:')) {
+          const path = line.substring(6).trim();
+          if (path === '/' || path === '') {
+            // Allow all or empty path means allow all
+            foundAllowForRelevantSection = true;
+          }
         }
       }
+    }
+    
+    // If we found an explicit allow rule for our user agent, allow access
+    if (foundAllowForRelevantSection) {
+      return true;
+    }
+    
+    // If we found an explicit disallow rule for our user agent, deny access
+    if (foundDisallowForRelevantSection) {
+      return false;
     }
     
     // If no specific rules found, assume allowed
