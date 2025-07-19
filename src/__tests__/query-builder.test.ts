@@ -87,15 +87,61 @@ describe('QueryBuilder', () => {
       const query = builder.fromDomain('cnn.com', true).build();
       expect(query).toBe('domainis:cnn.com');
     });
+    
+    it('should replace existing domain filter', () => {
+      const query = builder
+        .fromDomain('cnn.com')
+        .fromDomain('bbc.com')
+        .build();
+      expect(query).toBe('domain:bbc.com');
+    });
+    
+    it('should replace existing domain filter with exact domain filter', () => {
+      const query = builder
+        .fromDomain('cnn.com')
+        .fromDomain('bbc.com', true)
+        .build();
+      expect(query).toBe('domainis:bbc.com');
+    });
 
     it('should filter by country', () => {
       const query = builder.fromCountry('us').build();
       expect(query).toBe('sourcecountry:us');
     });
+    
+    it('should replace existing country filter', () => {
+      const query = builder
+        .fromCountry('us')
+        .fromCountry('uk')
+        .build();
+      expect(query).toBe('sourcecountry:uk');
+    });
+    
+    it('should normalize country names', () => {
+      const query = builder
+        .fromCountry('United States')
+        .build();
+      expect(query).toBe('sourcecountry:unitedstates');
+    });
 
     it('should filter by language', () => {
       const query = builder.inLanguage('en').build();
       expect(query).toBe('sourcelang:en');
+    });
+    
+    it('should replace existing language filter', () => {
+      const query = builder
+        .inLanguage('en')
+        .inLanguage('es')
+        .build();
+      expect(query).toBe('sourcelang:es');
+    });
+    
+    it('should normalize language names', () => {
+      const query = builder
+        .inLanguage('English')
+        .build();
+      expect(query).toBe('sourcelang:english');
     });
   });
 
@@ -114,6 +160,22 @@ describe('QueryBuilder', () => {
       const query = builder.withTone('=', 0).build();
       expect(query).toBe('tone=0');
     });
+    
+    it('should replace existing tone filter', () => {
+      const query = builder
+        .withTone('>', 5)
+        .withTone('<', -3)
+        .build();
+      expect(query).toBe('tone<-3');
+    });
+    
+    it('should not replace absolute tone filter with regular tone filter', () => {
+      const query = builder
+        .withAbsoluteTone('>', 5)
+        .withTone('<', -3)
+        .build();
+      expect(query).toBe('toneabs>5 tone<-3');
+    });
 
     it('should filter by positive tone', () => {
       const query = builder.withPositiveTone(3).build();
@@ -124,14 +186,46 @@ describe('QueryBuilder', () => {
       const query = builder.withNegativeTone(-2).build();
       expect(query).toBe('tone<-2');
     });
+    
+    it('should replace existing tone filter with positive tone', () => {
+      const query = builder
+        .withTone('<', -3)
+        .withPositiveTone(3)
+        .build();
+      expect(query).toBe('tone>3');
+    });
+    
+    it('should replace existing tone filter with negative tone', () => {
+      const query = builder
+        .withTone('>', 5)
+        .withNegativeTone(-2)
+        .build();
+      expect(query).toBe('tone<-2');
+    });
 
     it('should filter by neutral tone', () => {
       const query = builder.withNeutralTone(1).build();
       expect(query).toBe('toneabs<1');
     });
+    
+    it('should replace existing absolute tone filter with neutral tone', () => {
+      const query = builder
+        .withAbsoluteTone('>', 5)
+        .withNeutralTone(1)
+        .build();
+      expect(query).toBe('toneabs<1');
+    });
 
     it('should filter by high emotion', () => {
       const query = builder.withHighEmotion(8).build();
+      expect(query).toBe('toneabs>8');
+    });
+    
+    it('should replace existing absolute tone filter with high emotion', () => {
+      const query = builder
+        .withAbsoluteTone('<', 1)
+        .withHighEmotion(8)
+        .build();
       expect(query).toBe('toneabs>8');
     });
   });
@@ -163,24 +257,72 @@ describe('QueryBuilder', () => {
       const query = builder.withImageFaceCount('>', 2).build();
       expect(query).toBe('imagenumfaces>2');
     });
+    
+    it('should replace existing image face count filter', () => {
+      const query = builder
+        .withImageFaceCount('>', 2)
+        .withImageFaceCount('<', 10)
+        .build();
+      expect(query).toBe('imagenumfaces<10');
+    });
 
     it('should filter by image face tone', () => {
       const query = builder.withImageFaceTone('<', -1).build();
       expect(query).toBe('imagefacetone<-1');
+    });
+    
+    it('should replace existing image face tone filter', () => {
+      const query = builder
+        .withImageFaceTone('<', -1)
+        .withImageFaceTone('>', 1)
+        .build();
+      expect(query).toBe('imagefacetone>1');
     });
 
     it('should filter by image web count', () => {
       const query = builder.withImageWebCount('=', 50).build();
       expect(query).toBe('imagewebcount=50');
     });
+    
+    it('should replace existing image web count filter', () => {
+      const query = builder
+        .withImageWebCount('=', 50)
+        .withImageWebCount('>', 100)
+        .build();
+      expect(query).toBe('imagewebcount>100');
+    });
 
     it('should filter for novel images', () => {
       const query = builder.withNovelImages(5).build();
       expect(query).toBe('imagewebcount<5');
     });
+    
+    it('should replace existing image web count filter with novel images filter', () => {
+      const query = builder
+        .withImageWebCount('>', 100)
+        .withNovelImages(5)
+        .build();
+      expect(query).toBe('imagewebcount<5');
+    });
 
     it('should filter for popular images', () => {
       const query = builder.withPopularImages(200).build();
+      expect(query).toBe('imagewebcount>200');
+    });
+    
+    it('should replace existing image web count filter with popular images filter', () => {
+      const query = builder
+        .withImageWebCount('<', 10)
+        .withPopularImages(200)
+        .build();
+      expect(query).toBe('imagewebcount>200');
+    });
+    
+    it('should replace novel images filter with popular images filter', () => {
+      const query = builder
+        .withNovelImages(5)
+        .withPopularImages(200)
+        .build();
       expect(query).toBe('imagewebcount>200');
     });
   });
