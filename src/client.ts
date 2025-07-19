@@ -894,7 +894,18 @@ export class GdeltClient {
     fetchOptions?: IFetchContentOptions
   ): Promise<IArticleListWithContentResponse> {
     // 1. Get articles from GDELT API
-    const articles = await this.getArticles(paramsOrQuery as any);
+    let articles: IArticleListResponse;
+    
+    if (typeof paramsOrQuery === 'string') {
+      // Call the string overload
+      articles = await this.getArticles(paramsOrQuery);
+    } else if ('mode' in paramsOrQuery) {
+      // Call the IGdeltApiBaseParams overload
+      articles = await this.getArticles(paramsOrQuery);
+    } else {
+      // Call the ComplexQuery overload (which is handled by the string overload)
+      articles = await this.getArticles(paramsOrQuery);
+    }
     
     // 2. Extract URLs from articles
     const urls = articles.articles.map(article => article.url);
@@ -965,7 +976,7 @@ export class GdeltClient {
       if (contentResult) {
         const articleWithContent: IArticleWithContent = {
           ...article,
-          content: contentResult.success ? contentResult.content || null : null
+          content: contentResult.success ? contentResult.content ?? null : null
         };
         
         if (!contentResult.success && contentResult.error) {
