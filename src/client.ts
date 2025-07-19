@@ -638,7 +638,7 @@ export class GdeltClient {
     // Enhanced validation with type guard
     const validatedResponse = this._transformAndValidateResponse(response, TypeGuards.isToneChartResponse);
     
-    // Ensure the response has the expected structure
+    // Ensure the response has the expected structure with tonechart property
     if (!validatedResponse.tonechart) {
       throw new Error('Invalid response format from GDELT API: missing tonechart property');
     }
