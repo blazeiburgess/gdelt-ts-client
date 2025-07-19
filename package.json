@@ -7,6 +7,14 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blazeiburgess/gdelt-ts-client.git"
+  },
+  "homepage": "https://github.com/blazeiburgess/gdelt-ts-client#readme",
+  "bugs": {
+    "url": "https://github.com/blazeiburgess/gdelt-ts-client/issues"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rimraf dist",
