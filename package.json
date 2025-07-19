@@ -1,6 +1,6 @@
 {
   "name": "gdelt-ts-client",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "TypeScript client for the GDELT API with full type support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
