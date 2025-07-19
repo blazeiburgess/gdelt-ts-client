@@ -80,6 +80,138 @@ describe('Content Fetcher Configuration', () => {
       
       process.env = originalEnv;
     });
+    
+    it('should handle GDELT_CLIENT_CUSTOM_HEADERS environment variable', () => {
+      const originalEnv = process.env;
+      const customHeaders = {
+        'X-Custom-Header': 'value1',
+        'X-Another-Header': 'value2'
+      };
+      
+      process.env = {
+        ...originalEnv,
+        GDELT_CLIENT_CUSTOM_HEADERS: JSON.stringify(customHeaders)
+      };
+
+      const config = createDefaultContentFetcherConfig();
+      
+      expect(config.customHeaders).toEqual(customHeaders);
+      
+      process.env = originalEnv;
+    });
+
+    it('should handle invalid JSON in GDELT_CLIENT_CUSTOM_HEADERS', () => {
+      const originalEnv = process.env;
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      
+      process.env = {
+        ...originalEnv,
+        GDELT_CLIENT_CUSTOM_HEADERS: '{ invalid json }'
+      };
+
+      const config = createDefaultContentFetcherConfig();
+      
+      expect(config.customHeaders).toEqual({});
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to parse GDELT_CUSTOM_HEADERS:',
+        expect.any(Error)
+      );
+      
+      consoleSpy.mockRestore();
+      process.env = originalEnv;
+    });
+
+    it('should handle non-object JSON in GDELT_CLIENT_CUSTOM_HEADERS', () => {
+      const originalEnv = process.env;
+      
+      process.env = {
+        ...originalEnv,
+        GDELT_CLIENT_CUSTOM_HEADERS: '"string value"'
+      };
+
+      const config = createDefaultContentFetcherConfig();
+      
+      expect(config.customHeaders).toEqual({});
+      
+      process.env = originalEnv;
+    });
+    
+    it('should handle null JSON in GDELT_CLIENT_CUSTOM_HEADERS', () => {
+      const originalEnv = process.env;
+      
+      process.env = {
+        ...originalEnv,
+        GDELT_CLIENT_CUSTOM_HEADERS: 'null'
+      };
+
+      const config = createDefaultContentFetcherConfig();
+      
+      expect(config.customHeaders).toEqual({});
+      
+      process.env = originalEnv;
+    });
+    
+    it('should handle array JSON in GDELT_CLIENT_CUSTOM_HEADERS', () => {
+      const originalEnv = process.env;
+      
+      process.env = {
+        ...originalEnv,
+        GDELT_CLIENT_CUSTOM_HEADERS: '[]'
+      };
+
+      const config = createDefaultContentFetcherConfig();
+      
+      // Arrays are objects in JavaScript, so the parseCustomHeaders function
+      // will return the empty array as is
+      expect(config.customHeaders).toEqual([]);
+      
+      process.env = originalEnv;
+    });
+    
+    it('should handle number JSON in GDELT_CLIENT_CUSTOM_HEADERS', () => {
+      const originalEnv = process.env;
+      
+      process.env = {
+        ...originalEnv,
+        GDELT_CLIENT_CUSTOM_HEADERS: '123'
+      };
+
+      const config = createDefaultContentFetcherConfig();
+      
+      expect(config.customHeaders).toEqual({});
+      
+      process.env = originalEnv;
+    });
+    
+    it('should handle boolean JSON in GDELT_CLIENT_CUSTOM_HEADERS', () => {
+      const originalEnv = process.env;
+      
+      process.env = {
+        ...originalEnv,
+        GDELT_CLIENT_CUSTOM_HEADERS: 'true'
+      };
+
+      const config = createDefaultContentFetcherConfig();
+      
+      expect(config.customHeaders).toEqual({});
+      
+      process.env = originalEnv;
+    });
+    
+    it('should handle empty string in GDELT_CLIENT_CUSTOM_HEADERS', () => {
+      const originalEnv = process.env;
+      
+      process.env = {
+        ...originalEnv,
+        GDELT_CLIENT_CUSTOM_HEADERS: ''
+      };
+
+      const config = createDefaultContentFetcherConfig();
+      
+      expect(config.customHeaders).toEqual({});
+      
+      process.env = originalEnv;
+    });
   });
 
   describe('mergeContentFetcherConfig', () => {
