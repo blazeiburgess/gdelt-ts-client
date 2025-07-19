@@ -16,8 +16,15 @@ import {
   ITimelineResponse,
   ITimelineBreakdownResponse,
   IToneChartResponse,
-  IWordCloudResponse
+  IWordCloudResponse,
+  IArticle
 } from './interfaces/api-responses';
+import {
+  IArticleListWithContentResponse,
+  IArticleWithContent,
+  IArticleContentResult
+} from './interfaces/content-responses';
+import { IFetchContentOptions } from './interfaces/content-fetcher';
 import {
   TimespanUnit,
   TimespanUnitType,
@@ -45,6 +52,7 @@ import {
   searchLanguages, 
   searchThemes 
 } from './types/lookups';
+import { ContentFetcherService } from './services/content-fetcher';
 
 /**
  * GDELT API Client
@@ -88,6 +96,12 @@ export class GdeltClient {
   private readonly _retryDelay: number;
 
   /**
+   * The content fetcher service for article content retrieval
+   * @private
+   */
+  private readonly _contentFetcher: ContentFetcherService;
+
+  /**
    * Creates a new GDELT API client
    * @param config - The client configuration
    */
@@ -109,6 +123,9 @@ export class GdeltClient {
         'Content-Type': 'application/json'
       }
     });
+
+    // Initialize content fetcher service
+    this._contentFetcher = new ContentFetcherService(config?.contentFetcher);
   }
 
   /**
@@ -848,5 +865,237 @@ export class GdeltClient {
     }
     
     return transformedData;
+  }
+
+  // ===== CONTENT FETCHING METHODS =====
+
+  /**
+   * Fetch articles with their full content
+   * @param params - Standard GDELT API parameters
+   * @param fetchOptions - Content fetching options
+   * @returns Articles with full content included
+   */
+  public async getArticlesWithContent(
+    params: IGdeltApiBaseParams,
+    fetchOptions?: IFetchContentOptions
+  ): Promise<IArticleListWithContentResponse>;
+  /**
+   * Fetch articles with their full content (overload with query string)
+   * @param query - Query string or ComplexQuery
+   * @param fetchOptions - Content fetching options
+   * @returns Articles with full content included
+   */
+  public async getArticlesWithContent(
+    query: string | ComplexQuery,
+    fetchOptions?: IFetchContentOptions
+  ): Promise<IArticleListWithContentResponse>;
+  public async getArticlesWithContent(
+    paramsOrQuery: IGdeltApiBaseParams | string | ComplexQuery,
+    fetchOptions?: IFetchContentOptions
+  ): Promise<IArticleListWithContentResponse> {
+    // 1. Get articles from GDELT API
+    let articles: IArticleListResponse;
+    
+    if (typeof paramsOrQuery === 'string') {
+      // Call the string overload
+      articles = await this.getArticles(paramsOrQuery);
+    } else if ('mode' in paramsOrQuery) {
+      // Call the IGdeltApiBaseParams overload
+      articles = await this.getArticles(paramsOrQuery);
+    } else {
+      // Call the ComplexQuery overload (which is handled by the string overload)
+      articles = await this.getArticles(paramsOrQuery);
+    }
+    
+    // 2. Extract URLs from articles
+    const urls = articles.articles.map(article => article.url);
+    
+    // 3. Fetch content for all URLs
+    const contentResults = await this._contentFetcher.fetchMultipleArticleContent(
+      urls, 
+      fetchOptions
+    );
+    
+    // 4. Merge content with article metadata
+    return this._mergeArticlesWithContent(articles, contentResults);
+  }
+
+  /**
+   * Fetch content for existing articles
+   * @param articles - Array of article objects
+   * @param options - Content fetching options
+   * @returns Articles with content added
+   */
+  public async fetchContentForArticles(
+    articles: IArticle[],
+    options?: IFetchContentOptions
+  ): Promise<IArticleWithContent[]> {
+    // Extract URLs from articles
+    const urls = articles.map(article => article.url);
+    
+    // Fetch content for all URLs
+    const contentResults = await this._contentFetcher.fetchMultipleArticleContent(
+      urls, 
+      options
+    );
+    
+    // Merge content with article metadata
+    return this._mergeArticlesWithContentArray(articles, contentResults);
+  }
+
+  /**
+   * Get content fetcher service instance
+   * @returns Content fetcher service
+   */
+  public getContentFetcher(): ContentFetcherService {
+    return this._contentFetcher;
+  }
+
+  /**
+   * Merge articles with content results
+   * @param articles - Original article response
+   * @param contentResults - Content fetch results
+   * @returns Merged response with content
+   * @private
+   */
+  private _mergeArticlesWithContent(
+    articles: IArticleListResponse,
+    contentResults: IArticleContentResult[]
+  ): IArticleListWithContentResponse {
+    const articlesWithContent: IArticleWithContent[] = [];
+    const resultMap = new Map<string, IArticleContentResult>();
+    
+    // Create map of URL to content result
+    for (const result of contentResults) {
+      resultMap.set(result.url, result);
+    }
+    
+    // Merge articles with content
+    for (const article of articles.articles) {
+      const contentResult = resultMap.get(article.url);
+      if (contentResult) {
+        const articleWithContent: IArticleWithContent = {
+          ...article,
+          content: contentResult.success ? contentResult.content ?? null : null
+        };
+        
+        if (!contentResult.success && contentResult.error) {
+          articleWithContent.contentError = contentResult.error;
+        }
+        
+        if (contentResult.timing) {
+          articleWithContent.contentTiming = contentResult.timing;
+        }
+        
+        articlesWithContent.push(articleWithContent);
+      }
+    }
+    
+    // Calculate statistics
+    const contentStats = this._calculateContentStats(contentResults);
+    
+    return {
+      ...articles,
+      articles: articlesWithContent,
+      contentStats
+    };
+  }
+
+  /**
+   * Merge articles array with content results
+   * @param articles - Original articles array
+   * @param contentResults - Content fetch results
+   * @returns Merged articles with content
+   * @private
+   */
+  private _mergeArticlesWithContentArray(
+    articles: IArticle[],
+    contentResults: IArticleContentResult[]
+  ): IArticleWithContent[] {
+    // If there are no articles or no content results, return empty array
+    if (!articles.length || !contentResults?.length) {
+      return [];
+    }
+    
+    const articlesWithContent: IArticleWithContent[] = [];
+    const resultMap = new Map<string, IArticleContentResult>();
+    
+    // Create map of URL to content result
+    for (const result of contentResults) {
+      resultMap.set(result.url, result);
+    }
+    
+    // Merge articles with content
+    for (const article of articles) {
+      const contentResult = resultMap.get(article.url);
+      if (contentResult) {
+        const articleWithContent: IArticleWithContent = {
+          ...article,
+          content: contentResult.success ? (contentResult.content ?? null) : null
+        };
+        
+        if (!contentResult.success && contentResult.error) {
+          articleWithContent.contentError = contentResult.error;
+        }
+        
+        if (contentResult.timing) {
+          articleWithContent.contentTiming = contentResult.timing;
+        }
+        
+        articlesWithContent.push(articleWithContent);
+      }
+    }
+    
+    return articlesWithContent;
+  }
+
+  /**
+   * Calculate content fetching statistics
+   * @param contentResults - Content fetch results
+   * @returns Content statistics
+   * @private
+   */
+  private _calculateContentStats(contentResults: IArticleContentResult[]): {
+    totalArticles: number;
+    successfulFetches: number;
+    failedFetches: number;
+    averageFetchTime: number;
+    averageParseTime: number;
+    totalFetchTime: number;
+    totalWords: number;
+    failureReasons: Record<string, number>;
+  } {
+    const totalArticles = contentResults.length;
+    const successfulFetches = contentResults.filter(r => r.success).length;
+    const failedFetches = contentResults.filter(r => !r.success).length;
+    
+    const totalFetchTime = Math.max(...contentResults.map(r => r.timing.totalTime));
+    const averageFetchTime = contentResults.length > 0 ? 
+      contentResults.reduce((sum, r) => sum + r.timing.fetchTime, 0) / contentResults.length : 0;
+    const averageParseTime = contentResults.length > 0 ? 
+      contentResults.reduce((sum, r) => sum + r.timing.parseTime, 0) / contentResults.length : 0;
+    
+    const totalWords = contentResults
+      .filter(r => r.success && r.content)
+      .reduce((sum, r) => sum + (r.content?.wordCount ?? 0), 0);
+    
+    const failureReasons: Record<string, number> = {};
+    for (const result of contentResults) {
+      if (!result.success && result.error) {
+        const reason = result.error.code || 'UNKNOWN';
+        failureReasons[reason] = (failureReasons[reason] ?? 0) + 1;
+      }
+    }
+    
+    return {
+      totalArticles,
+      successfulFetches,
+      failedFetches,
+      averageFetchTime,
+      averageParseTime,
+      totalFetchTime,
+      totalWords,
+      failureReasons
+    };
   }
 }
