@@ -184,20 +184,56 @@ export class GdeltClient {
   /**
    * Transforms API response data without mutating the original
    * @param data - The original response data
+   * @param mode - The API mode used for the request
    * @returns The transformed response data
    * @private
    */
-  private _transformResponse<T extends object>(data: unknown): T {
-    if (!data || typeof data !== 'object') {
+  private _transformResponse<T extends object>(data: unknown, mode?: EMode): T {
+    // For backward compatibility with tests, still throw error for null/undefined
+    if (!data) {
       throw new Error('Invalid response data: expected object');
     }
-
+    
+    // For empty responses that are objects, handle gracefully
+    // For non-objects, throw error for backward compatibility
+    if (typeof data !== 'object') {
+      throw new Error('Invalid response data: expected object');
+    }
+    
     // Create a new object without mutating the original
-    const transformedData = { ...data } as Record<string, unknown>;
+    const transformedData = { ...data as Record<string, unknown> };
 
     // Add status if missing
     if (!('status' in transformedData)) {
       transformedData['status'] = 'ok';
+    }
+
+    // Ensure expected array properties exist based on the mode
+    if (mode === EMode.articleList && !('articles' in transformedData)) {
+      transformedData['articles'] = [];
+    }
+
+    if (mode === EMode.imageCollageInfo && !('images' in transformedData)) {
+      transformedData['images'] = [];
+    }
+
+    if ((mode === EMode.timelineVolume || mode === EMode.timelineVolumeInfo || mode === EMode.timelineTone) 
+        && !('timeline' in transformedData)) {
+      transformedData['timeline'] = [];
+    }
+
+    if ((mode === EMode.timelineLanguage || mode === EMode.timelineSourceCountry) 
+        && !('data' in transformedData)) {
+      transformedData['data'] = [];
+    }
+
+    if (mode === EMode.toneChart && !('tonechart' in transformedData)) {
+      transformedData['tonechart'] = [];
+    }
+
+    if ((mode === EMode.wordCloudImageTags || mode === EMode.wordCloudImageWebTags) 
+        && !('wordcloud' in transformedData)) {
+      transformedData['wordcloud'] = [];
     }
 
     // Add count property for article list responses
@@ -314,7 +350,7 @@ export class GdeltClient {
     }
     
     // Transform response data without mutating original
-    const transformedData = this._transformResponse<T>(response.data);
+    const transformedData = this._transformResponse<T>(response.data, params.mode);
     
     return transformedData;
   }
@@ -602,7 +638,7 @@ export class GdeltClient {
     // Enhanced validation with type guard
     const validatedResponse = this._transformAndValidateResponse(response, TypeGuards.isToneChartResponse);
     
-    // Ensure the response has the expected structure
+    // Ensure the response has the expected structure with tonechart property
     if (!validatedResponse.tonechart) {
       throw new Error('Invalid response format from GDELT API: missing tonechart property');
     }
