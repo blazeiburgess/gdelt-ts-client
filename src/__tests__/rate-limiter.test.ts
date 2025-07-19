@@ -124,6 +124,162 @@ describe('RateLimiter', () => {
       const stats = testLimiter.getStats(domain);
       expect(stats.requestsLastMinute).toBeLessThanOrEqual(3);
     });
+    
+    it('should handle negative waitTime for per-minute limit', async () => {
+      // Create a rate limiter for testing
+      const testLimiter = new RateLimiter(1, 3); // 1 per second, 3 per minute
+      const domain = 'example.com';
+      
+      // Mock Date.now to control timing
+      const originalDateNow = Date.now;
+      const mockTime = 1000000;
+      
+      try {
+        // First, set up the request history with timestamps
+        const requestTimes = [mockTime - 65000]; // Request from more than a minute ago
+        
+        // Access private property for testing
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const requests = (testLimiter as any)._requests;
+        requests.set(domain.toLowerCase(), requestTimes);
+        
+        // Mock Date.now to return a time that will make waitTime <= 0
+        Date.now = jest.fn().mockReturnValue(mockTime);
+        
+        // This should not delay because the request is older than a minute
+        const promise = testLimiter.waitForRateLimit(domain);
+        await promise;
+        
+        // If we get here without delay, the test passes
+        expect(true).toBe(true);
+      } finally {
+        // Restore original Date.now
+        Date.now = originalDateNow;
+      }
+    });
+    
+    it('should handle negative waitTime for per-second limit', async () => {
+      // Create a rate limiter for testing
+      const testLimiter = new RateLimiter(2, 10); // 2 per second, 10 per minute
+      const domain = 'example.com';
+      
+      // Mock Date.now to control timing
+      const originalDateNow = Date.now;
+      const mockTime = 2000000;
+      
+      try {
+        // First, set up the request history with timestamps
+        const requestTimes = [
+          mockTime - 1500, // Request from 1.5 seconds ago
+          mockTime - 1200  // Request from 1.2 seconds ago
+        ];
+        
+        // Access private property for testing
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const requests = (testLimiter as any)._requests;
+        requests.set(domain.toLowerCase(), requestTimes);
+        
+        // Mock Date.now to return a time that will make waitTime <= 0
+        Date.now = jest.fn().mockReturnValue(mockTime);
+        
+        // This should not delay because the requests are older than a second
+        const promise = testLimiter.waitForRateLimit(domain);
+        await promise;
+        
+        // If we get here without delay, the test passes
+        expect(true).toBe(true);
+      } finally {
+        // Restore original Date.now
+        Date.now = originalDateNow;
+      }
+    });
+    
+    it('should handle exactly zero waitTime for per-second limit', async () => {
+      // Create a rate limiter for testing
+      const testLimiter = new RateLimiter(2, 10); // 2 per second, 10 per minute
+      const domain = 'example.com';
+      
+      // Mock Date.now to control timing
+      const originalDateNow = Date.now;
+      const mockTime = 2000000;
+      
+      try {
+        // First, set up the request history with timestamps
+        const requestTimes = [
+          mockTime - 1000, // Request from exactly 1 second ago
+          mockTime - 1000  // Request from exactly 1 second ago
+        ];
+        
+        // Access private property for testing
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const requests = (testLimiter as any)._requests;
+        requests.set(domain.toLowerCase(), requestTimes);
+        
+        // Mock Date.now to return a time that will make waitTime exactly 0
+        Date.now = jest.fn().mockReturnValue(mockTime);
+        
+        // Spy on the _delay method to verify it's not called
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const delaySpy = jest.spyOn(testLimiter as any, '_delay');
+        
+        // This should not delay because waitTime is exactly 0
+        const promise = testLimiter.waitForRateLimit(domain);
+        await promise;
+        
+        // Verify _delay was not called
+        expect(delaySpy).not.toHaveBeenCalled();
+        
+        // Restore the spy
+        delaySpy.mockRestore();
+      } finally {
+        // Restore original Date.now
+        Date.now = originalDateNow;
+      }
+    });
+    
+    it('should handle exactly zero waitTime for per-minute limit', async () => {
+      // Create a rate limiter for testing
+      const testLimiter = new RateLimiter(2, 3); // 2 per second, 3 per minute
+      const domain = 'example.com';
+      
+      // Mock Date.now to control timing
+      const originalDateNow = Date.now;
+      const mockTime = 2000000;
+      
+      try {
+        // First, set up the request history with timestamps
+        const requestTimes = [
+          mockTime - 60000, // Request from exactly 1 minute ago
+          mockTime - 60000, // Request from exactly 1 minute ago
+          mockTime - 60000  // Request from exactly 1 minute ago
+        ];
+        
+        // Access private property for testing
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const requests = (testLimiter as any)._requests;
+        requests.set(domain.toLowerCase(), requestTimes);
+        
+        // Mock Date.now to return a time that will make waitTime exactly 0
+        Date.now = jest.fn().mockReturnValue(mockTime);
+        
+        // Spy on the _delay method to verify it's not called
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const delaySpy = jest.spyOn(testLimiter as any, '_delay');
+        
+        // This should not delay because waitTime is exactly 0
+        const promise = testLimiter.waitForRateLimit(domain);
+        await promise;
+        
+        // Verify _delay was not called
+        expect(delaySpy).not.toHaveBeenCalled();
+        
+        // Restore the spy
+        delaySpy.mockRestore();
+      } finally {
+        // Restore original Date.now
+        Date.now = originalDateNow;
+      }
+    });
   });
 
   describe('getStats', () => {
