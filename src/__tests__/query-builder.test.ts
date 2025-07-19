@@ -206,14 +206,23 @@ describe('QueryBuilder', () => {
       expect(query).toBe('special:filter');
     });
 
-    it('should group components', () => {
+    it('should group components with OR statements', () => {
       const query = builder
-        .search('climate')
-        .search('change')
+        .anyOf('climate', 'change')
         .group()
         .search('energy')
         .build();
-      expect(query).toBe('(climate change) energy');
+      expect(query).toBe('(climate OR change) energy');
+    });
+    
+    it('should not group components without OR statements', () => {
+      const query = builder
+        .search('climate')
+        .search('change')
+        .group() // Should not group due to GDELT API limitations
+        .search('energy')
+        .build();
+      expect(query).toBe('climate change energy');
     });
 
     it('should not group single component', () => {
