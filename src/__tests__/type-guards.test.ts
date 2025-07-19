@@ -93,6 +93,14 @@ describe('Specific Response Type Guards', () => {
         articles: [{ noUrl: 'invalid' }] 
       })).toBe(false);
     });
+
+    it('should reject non-GDELT API responses', () => {
+      expect(isArticleListResponse(null)).toBe(false);
+      expect(isArticleListResponse(undefined)).toBe(false);
+      expect(isArticleListResponse('string')).toBe(false);
+      expect(isArticleListResponse(123)).toBe(false);
+      expect(isArticleListResponse({})).toBe(false);
+    });
   });
 
   describe('isImageCollageResponse', () => {
@@ -126,6 +134,14 @@ describe('Specific Response Type Guards', () => {
         status: 'ok', 
         images: [{ noUrl: 'invalid' }] 
       })).toBe(false);
+    });
+
+    it('should reject non-GDELT API responses', () => {
+      expect(isImageCollageResponse(null)).toBe(false);
+      expect(isImageCollageResponse(undefined)).toBe(false);
+      expect(isImageCollageResponse('string')).toBe(false);
+      expect(isImageCollageResponse(123)).toBe(false);
+      expect(isImageCollageResponse({})).toBe(false);
     });
   });
 
@@ -165,6 +181,14 @@ describe('Specific Response Type Guards', () => {
         timeline: [{ value: 100 }] // missing date
       })).toBe(false);
     });
+
+    it('should reject non-GDELT API responses', () => {
+      expect(isTimelineResponse(null)).toBe(false);
+      expect(isTimelineResponse(undefined)).toBe(false);
+      expect(isTimelineResponse('string')).toBe(false);
+      expect(isTimelineResponse(123)).toBe(false);
+      expect(isTimelineResponse({})).toBe(false);
+    });
   });
 
   describe('isTimelineBreakdownResponse', () => {
@@ -198,6 +222,14 @@ describe('Specific Response Type Guards', () => {
         status: 'ok', 
         data: [{ noDate: 'invalid' }] 
       })).toBe(false);
+    });
+
+    it('should reject non-GDELT API responses', () => {
+      expect(isTimelineBreakdownResponse(null)).toBe(false);
+      expect(isTimelineBreakdownResponse(undefined)).toBe(false);
+      expect(isTimelineBreakdownResponse('string')).toBe(false);
+      expect(isTimelineBreakdownResponse(123)).toBe(false);
+      expect(isTimelineBreakdownResponse({})).toBe(false);
     });
   });
 
@@ -238,6 +270,14 @@ describe('Specific Response Type Guards', () => {
         tonechart: [{ count: 100 }] // missing bin
       })).toBe(false);
     });
+
+    it('should reject non-GDELT API responses', () => {
+      expect(isToneChartResponse(null)).toBe(false);
+      expect(isToneChartResponse(undefined)).toBe(false);
+      expect(isToneChartResponse('string')).toBe(false);
+      expect(isToneChartResponse(123)).toBe(false);
+      expect(isToneChartResponse({})).toBe(false);
+    });
   });
 
   describe('isWordCloudResponse', () => {
@@ -276,6 +316,14 @@ describe('Specific Response Type Guards', () => {
         status: 'ok', 
         words: [{ count: 100 }] // missing word
       })).toBe(false);
+    });
+
+    it('should reject non-GDELT API responses', () => {
+      expect(isWordCloudResponse(null)).toBe(false);
+      expect(isWordCloudResponse(undefined)).toBe(false);
+      expect(isWordCloudResponse('string')).toBe(false);
+      expect(isWordCloudResponse(123)).toBe(false);
+      expect(isWordCloudResponse({})).toBe(false);
     });
   });
 });
