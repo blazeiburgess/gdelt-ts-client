@@ -96,6 +96,40 @@ describe('ContentFetcherService', () => {
         Date.now = originalDateNow;
       }
     });
+    
+    it('should include raw HTML when requested', async () => {
+      const mockUrl = 'https://example.com/article';
+      const mockHtml = '<html><body><p>Test content</p></body></html>';
+      
+      // Mock the content scraper and parser
+      const mockScraper = service.getContentScraper();
+      const mockParser = service.getContentParser();
+      
+      jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
+      jest.spyOn(mockScraper, 'respectfulRequest').mockResolvedValue({
+        data: mockHtml,
+        status: 200
+      } as any);
+      
+      jest.spyOn(mockParser, 'parseHTML').mockReturnValue({
+        text: 'Test content',
+        wordCount: 2,
+        metadata: {
+          extractionMethod: 'readability',
+          extractionConfidence: 0.9
+        },
+        paywallDetected: false,
+        qualityScore: 0.8
+      } as any);
+
+      const result = await service.fetchArticleContent(mockUrl, {
+        includeRawHTML: true
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBeDefined();
+      expect(result.content?.rawHTML).toBe(mockHtml);
+    });
 
     it('should handle failed content fetch', async () => {
       const mockUrl = 'https://example.com/article';
@@ -278,6 +312,151 @@ describe('ContentFetcherService', () => {
     it('should return content parser instance', () => {
       const parser = service.getContentParser();
       expect(parser).toBeDefined();
+    });
+  });
+  describe('Private methods coverage', () => {
+    // Test _fetchWithRetry through fetchArticleContent with retryable status codes
+    it('should retry on retryable status codes', async () => {
+      const mockUrl = 'https://example.com/article';
+      
+      const mockScraper = service.getContentScraper();
+      jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
+      
+      // First call throws error with status 503, second call succeeds
+      const mockRequest = jest.spyOn(mockScraper, 'respectfulRequest');
+      mockRequest.mockRejectedValueOnce({
+        response: { status: 503 },
+        message: 'Service unavailable'
+      });
+      mockRequest.mockResolvedValueOnce({
+        data: '<html><body><p>Test content</p></body></html>',
+        status: 200
+      } as any);
+      
+      const mockParser = service.getContentParser();
+      jest.spyOn(mockParser, 'parseHTML').mockReturnValue({
+        text: 'Test content',
+        wordCount: 2,
+        metadata: {
+          extractionMethod: 'readability',
+          extractionConfidence: 0.9
+        },
+        paywallDetected: false,
+        qualityScore: 0.8
+      } as any);
+      
+      // Mock _delay method directly to avoid timer issues
+      jest.spyOn(service as any, '_delay').mockImplementation(async () => Promise.resolve());
+      
+      const result = await service.fetchArticleContent(mockUrl);
+      
+      expect(result.success).toBe(true);
+      expect(mockRequest).toHaveBeenCalledTimes(2);
+      expect(result.error).toBeUndefined();
+    });
+    
+    // Test _getErrorCode with different error types
+    it('should handle different error types with _getErrorCode', async () => {
+      const mockUrl = 'https://example.com/article';
+      const mockScraper = service.getContentScraper();
+      jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
+      
+      // Test error with code property
+      jest.spyOn(mockScraper, 'respectfulRequest').mockRejectedValueOnce({
+        code: 'ECONNREFUSED',
+        message: 'Connection refused'
+      });
+      
+      let result = await service.fetchArticleContent(mockUrl);
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe('ECONNREFUSED');
+      
+      // Test error with response status
+      jest.spyOn(mockScraper, 'respectfulRequest').mockRejectedValueOnce({
+        response: { status: 404 },
+        message: 'Not found'
+      });
+      
+      result = await service.fetchArticleContent(mockUrl);
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe('HTTP_404');
+      
+      // Test timeout error
+      jest.spyOn(mockScraper, 'respectfulRequest').mockRejectedValueOnce(
+        new Error('timeout of 5000ms exceeded')
+      );
+      
+      result = await service.fetchArticleContent(mockUrl);
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe('TIMEOUT');
+      
+      // Test robots.txt error
+      jest.spyOn(mockScraper, 'respectfulRequest').mockRejectedValueOnce(
+        new Error('robots.txt disallows access')
+      );
+      
+      result = await service.fetchArticleContent(mockUrl);
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe('ROBOTS_DISALLOWED');
+      
+      // Test unknown error
+      jest.spyOn(mockScraper, 'respectfulRequest').mockRejectedValueOnce(
+        new Error('Some other error')
+      );
+      
+      result = await service.fetchArticleContent(mockUrl);
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe('UNKNOWN');
+    });
+    
+    // Test _groupUrlsByDomain with valid and invalid URLs
+    it('should group URLs by domain and handle invalid URLs', async () => {
+      const mockUrls = [
+        'https://example.com/article1',
+        'https://example.com/article2',
+        'https://another.com/article',
+        'invalid-url', // Invalid URL
+        'https://third.com/article'
+      ];
+      
+      const mockScraper = service.getContentScraper();
+      const mockParser = service.getContentParser();
+      
+      jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
+      jest.spyOn(mockScraper, 'respectfulRequest').mockResolvedValue({
+        data: '<html><body><p>Test content</p></body></html>',
+        status: 200
+      } as any);
+      
+      jest.spyOn(mockParser, 'parseHTML').mockReturnValue({
+        text: 'Test content',
+        wordCount: 2,
+        metadata: {
+          extractionMethod: 'readability',
+          extractionConfidence: 0.9
+        },
+        paywallDetected: false,
+        qualityScore: 0.8
+      } as any);
+      
+      // Mock console.warn to capture warnings
+      const originalConsoleWarn = console.warn;
+      const mockConsoleWarn = jest.fn();
+      console.warn = mockConsoleWarn;
+      
+      try {
+        const results = await service.fetchMultipleArticleContent(mockUrls);
+        
+        // Should have 4 results (one for each valid URL)
+        expect(results).toHaveLength(4);
+        
+        // Should have logged a warning for the invalid URL
+        expect(mockConsoleWarn).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid URL: invalid-url')
+        );
+      } finally {
+        console.warn = originalConsoleWarn;
+      }
     });
   });
 });
