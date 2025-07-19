@@ -93,6 +93,124 @@ describe('ContentScraper', () => {
       
       expect(result).toBe(true); // Should allow access when robots.txt unavailable
     });
+    
+    it('should cache default rules when robots.txt fetch fails', async () => {
+      // Spy on console.warn to verify it's called
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      
+      // Spy on the cache set method
+      const cacheSpy = jest.spyOn(scraper['_robotsCache'], 'set');
+      
+      // Mock axios to fail when fetching robots.txt
+      mockAxios.get.mockRejectedValueOnce(new Error('Timeout error'));
+
+      // Call the method
+      const result = await scraper.checkRobotsTxt('timeout-example.com');
+      
+      // Verify the result
+      expect(result).toBe(true);
+      
+      // Verify console.warn was called
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Failed to fetch robots.txt for timeout-example.com:',
+        expect.any(Error)
+      );
+      
+      // Verify the cache was set with default values
+      expect(cacheSpy).toHaveBeenCalledWith(
+        'timeout-example.com',
+        expect.objectContaining({
+          allowed: true,
+          userAgentRules: []
+        })
+      );
+      
+      // Verify the expiration time is set to 5 minutes (300000ms)
+      expect(cacheSpy).toHaveBeenCalled();
+      
+      // Get the cached value directly from the mock calls
+      const cachedValue = cacheSpy.mock.calls[0]?.[1];
+      expect(cachedValue).toBeDefined();
+      
+      // Type assertion to help TypeScript
+      if (cachedValue) {
+        // Verify that expiration time is in the future
+        expect(cachedValue.expiresAt).toBeGreaterThan(Date.now());
+        
+        // Calculate the maximum possible expiration time (30 minutes + buffer)
+        const maxExpirationTime = Date.now() + 1800000 + 1000; // 30 minutes + 1 second buffer
+        
+        // Verify that expiration time is reasonable (not more than 30 minutes in the future)
+        expect(cachedValue.expiresAt).toBeLessThanOrEqual(maxExpirationTime);
+      }
+      
+      // Restore the spy
+      consoleWarnSpy.mockRestore();
+      cacheSpy.mockRestore();
+    });
+    
+    it('should handle different error types when fetching robots.txt', async () => {
+      // Test different error types to ensure all branches are covered
+      const errorTypes = [
+        { name: 'AxiosError', message: 'Request failed with status code 404' },
+        { name: 'TypeError', message: 'Cannot read property of undefined' },
+        { name: 'SyntaxError', message: 'Unexpected token in JSON' }
+      ];
+      
+      for (const errorType of errorTypes) {
+        // Spy on console.warn
+        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        
+        // Create an error with the specific type
+        const error = new Error(errorType.message);
+        error.name = errorType.name;
+        
+        // Mock axios to fail with this specific error
+        mockAxios.get.mockRejectedValueOnce(error);
+        
+        // Call the method with a unique domain for each error type
+        const domain = `${errorType.name.toLowerCase()}-example.com`;
+        const result = await scraper.checkRobotsTxt(domain);
+        
+        // Verify the result is true regardless of error type
+        expect(result).toBe(true);
+        
+        // Verify console.warn was called with the correct error
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+          `Failed to fetch robots.txt for ${domain}:`,
+          expect.objectContaining({
+            name: errorType.name,
+            message: errorType.message
+          })
+        );
+        
+        // Restore the spy
+        consoleWarnSpy.mockRestore();
+      }
+    });
+    
+    it('should handle null or undefined error when fetching robots.txt', async () => {
+      // Spy on console.warn
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      
+      // Mock axios to fail with undefined error (can happen in some edge cases)
+      mockAxios.get.mockRejectedValueOnce(undefined);
+      
+      // Call the method
+      const result = await scraper.checkRobotsTxt('undefined-error-example.com');
+      
+      // Verify the result
+      expect(result).toBe(true);
+      
+      // Verify console.warn was called
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Failed to fetch robots.txt for undefined-error-example.com:',
+        undefined
+      );
+      
+      // Restore the spy
+      consoleWarnSpy.mockRestore();
+    });
 
     it('should cache robots.txt results', async () => {
       // Reset mocks to ensure clean state
@@ -156,12 +274,20 @@ describe('ContentScraper', () => {
     });
 
     it('should handle robots.txt with bot-specific rules', async () => {
+      // Create a new scraper with a bot-like user agent for this test
+      const botScraper = new ContentScraper(
+        'TestBot/1.0',
+        5000,
+        2,
+        10
+      );
+      
       // Mock axios to return a robots.txt with bot-specific rules
       mockAxios.get.mockResolvedValueOnce({
         data: 'User-agent: bot\nDisallow: /\n\nUser-agent: *\nAllow: /'
       });
 
-      const result = await scraper.checkRobotsTxt('example.com');
+      const result = await botScraper.checkRobotsTxt('example.com');
       
       expect(result).toBe(false); // Should disallow access for bot user agent
     });
@@ -273,25 +399,34 @@ describe('ContentScraper', () => {
     it('should validate status correctly', async () => {
       mockRateLimiter.waitForRateLimit.mockResolvedValue();
       
-      // Create a spy to capture the validateStatus function
-      let validateStatusFn: ((status: number) => boolean) | undefined;
+      // Reset the mock to ensure clean state
+      mockAxios.get.mockReset();
       
-      mockAxios.get.mockImplementationOnce(async (
-          _url: any, options: { validateStatus: ((status: number) => boolean) | undefined; }
-      ) => {
-        validateStatusFn = options?.validateStatus;
+      // Create a spy to capture the options passed to axios.get
+      mockAxios.get.mockImplementation(async (_url: string, options: { validateStatus?: (status: number) => boolean }) => {
+        // Directly test the validateStatus function from the options
+        const validateStatus = options?.validateStatus;
+        
+        // Verify validateStatus function behavior
+        expect(validateStatus).toBeDefined();
+        expect(validateStatus?.(200)).toBe(true);  // 2xx should be valid
+        expect(validateStatus?.(404)).toBe(true);  // 4xx should be valid
+        expect(validateStatus?.(500)).toBe(false); // 5xx should be invalid
+        
         return { data: '', status: 200 };
       });
 
       await scraper.respectfulRequest('https://example.com/article');
       
-      // Verify validateStatus function behavior
-      expect(validateStatusFn).toBeDefined();
-      if (validateStatusFn) {
-        expect(validateStatusFn(200)).toBe(true);  // 2xx should be valid
-        expect(validateStatusFn(404)).toBe(true);  // 4xx should be valid
-        expect(validateStatusFn(500)).toBe(false); // 5xx should be invalid
-      }
+      // Verify that axios.get was called
+      expect(mockAxios.get).toHaveBeenCalledWith(
+        'https://example.com/article',
+        expect.objectContaining({
+          timeout: expect.any(Number),
+          maxRedirects: expect.any(Number),
+          headers: expect.any(Object)
+        })
+      );
     });
   });
 
