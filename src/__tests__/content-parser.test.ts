@@ -302,6 +302,23 @@ describe('ContentParserService', () => {
 
       expect(result).toBeUndefined();
     });
+
+    it('should return first matching language when multiple languages have same match count', () => {
+      // This tests lines 286-289 where multiple languages have equal matches
+      // The implementation returns first match: 'en', then 'es', then 'fr', then 'de'
+      const text = 'le la les et pour dans avec';  // French words
+      const result = (service as any)._detectLanguage(text);
+
+      expect(result).toBe('fr');
+    });
+
+    it('should detect German text when it has most matches', () => {
+      // This tests line 287 where German has the most matches
+      const text = 'der die das und ist mit zu haben werden nicht';  // German words
+      const result = (service as any)._detectLanguage(text);
+
+      expect(result).toBe('de');
+    });
   });
 
   describe('_extractDateFromMetadata', () => {
@@ -478,6 +495,40 @@ describe('ContentParserService', () => {
 
       const result = (service as any)._calculateQualityScore(content, metadata);
       expect(result).toBeLessThanOrEqual(1.0);
+    });
+
+    it('should calculate moderate score for content between 200-500 characters', () => {
+      // This tests line 330 where content length is between 200-500 characters
+      const content = '<p>' + 'a'.repeat(350) + '</p>'; // Creates content with exactly 350 characters when stripped
+      const metadata = {
+        extractionMethod: 'fallback' as 'readability' | 'fallback',
+        extractionConfidence: 0.5,
+        openGraph: {},
+        article: {},
+        canonicalUrl: '',
+        twitterCard: {}
+      };
+
+      const result = (service as any)._calculateQualityScore(content, metadata);
+      expect(result).toBeGreaterThanOrEqual(0.2);
+      expect(result).toBeLessThan(0.5);
+    });
+
+    it('should calculate higher score for content between 500-1000 characters', () => {
+      // This tests line 328 where content length is between 500-1000 characters
+      const content = '<p>' + 'a'.repeat(750) + '</p>'; // Creates content with exactly 750 characters when stripped
+      const metadata = {
+        extractionMethod: 'fallback' as 'readability' | 'fallback',
+        extractionConfidence: 0.5,
+        openGraph: {},
+        article: {},
+        canonicalUrl: '',
+        twitterCard: {}
+      };
+
+      const result = (service as any)._calculateQualityScore(content, metadata);
+      expect(result).toBeGreaterThanOrEqual(0.3);
+      expect(result).toBeLessThan(0.6);
     });
   });
 

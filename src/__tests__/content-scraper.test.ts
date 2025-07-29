@@ -20,8 +20,11 @@ import { RateLimiter } from '../utils/rate-limiter';
 describe('ContentScraper', () => {
   let scraper: ContentScraper;
   let mockRateLimiter: jest.Mocked<RateLimiter>;
+  let consoleWarnSpy: jest.SpyInstance;
 
   beforeEach(() => {
+    // Mock console.warn to suppress expected warnings
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
     // Create a mock instance with the methods we need
     mockRateLimiter = {
       waitForRateLimit: jest.fn().mockResolvedValue(undefined),
@@ -42,6 +45,7 @@ describe('ContentScraper', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    consoleWarnSpy.mockRestore();
   });
 
   describe('constructor', () => {
@@ -471,6 +475,43 @@ describe('ContentScraper', () => {
     it('should return rate limiter instance', () => {
       const rateLimiter = scraper.getRateLimiter();
       expect(rateLimiter).toBeDefined();
+    });
+  });
+
+  describe('robots.txt caching edge cases', () => {
+    it('should cache default rules for shorter time when robots.txt fetch fails', async () => {
+      // This tests lines 60-68 where robots.txt fetch fails and default rules are cached
+      mockAxios.get.mockRejectedValue(new Error('Connection timeout'));
+      
+      const domain = 'timeout.com';
+      const allowed = await scraper.checkRobotsTxt(domain);
+      
+      expect(allowed).toBe(true);
+      
+      // Check that the cache has the entry
+      const cacheSize = scraper.getRobotsCacheSize();
+      expect(cacheSize).toBe(1);
+    });
+
+    it('should handle multiple failed robots.txt fetches with proper caching', async () => {
+      // Clear any previous mocks
+      mockAxios.get.mockClear();
+      mockAxios.get.mockRejectedValue(new Error('DNS resolution failed'));
+      
+      // First call should fetch and cache
+      const allowed1 = await scraper.checkRobotsTxt('fail1.com');
+      expect(allowed1).toBe(true);
+      expect(mockAxios.get).toHaveBeenCalledTimes(1);
+      
+      // Second call to same domain should use cache
+      const allowed2 = await scraper.checkRobotsTxt('fail1.com');
+      expect(allowed2).toBe(true);
+      expect(mockAxios.get).toHaveBeenCalledTimes(1); // Still 1, not fetched again
+      
+      // Call to different domain should fetch again
+      const allowed3 = await scraper.checkRobotsTxt('fail2.com');
+      expect(allowed3).toBe(true);
+      expect(mockAxios.get).toHaveBeenCalledTimes(2);
     });
   });
 });

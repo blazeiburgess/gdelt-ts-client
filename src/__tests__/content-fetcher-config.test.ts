@@ -212,6 +212,36 @@ describe('Content Fetcher Configuration', () => {
       
       process.env = originalEnv;
     });
+
+    it('should handle GDELT_CLIENT_SKIP_DOMAINS environment variable', () => {
+      const originalEnv = process.env;
+      
+      process.env = {
+        ...originalEnv,
+        GDELT_CLIENT_SKIP_DOMAINS: 'example.com,test.com,blocked.net'
+      };
+
+      const config = createDefaultContentFetcherConfig();
+      
+      expect(config.skipDomains).toEqual(['example.com', 'test.com', 'blocked.net']);
+      
+      process.env = originalEnv;
+    });
+
+    it('should handle undefined GDELT_CLIENT_SKIP_DOMAINS', () => {
+      const originalEnv = process.env;
+      
+      process.env = {
+        ...originalEnv
+      };
+      delete process.env['GDELT_CLIENT_SKIP_DOMAINS'];
+
+      const config = createDefaultContentFetcherConfig();
+      
+      expect(config.skipDomains).toEqual([]);
+      
+      process.env = originalEnv;
+    });
   });
 
   describe('mergeContentFetcherConfig', () => {

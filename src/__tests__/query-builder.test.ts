@@ -18,6 +18,8 @@ import {
   inLanguage,
   withTone,
   withTheme,
+  withImageTag,
+  withImageWebTag,
   isValidQuery,
   hasBalancedQuotes,
   getQueryComplexity
@@ -371,6 +373,16 @@ describe('QueryBuilder', () => {
       const query = builder.search('climate').group().build();
       expect(query).toBe('climate');
     });
+
+    it('should group multiple components that already contain OR statements', () => {
+      // This test covers lines 981-982 where hasOrStatements is true
+      const query = builder
+        .custom('theme:CLIMATE OR theme:ENVIRONMENT')
+        .custom('country:US')
+        .group()
+        .build();
+      expect(query).toBe('(theme:CLIMATE OR theme:ENVIRONMENT country:US)');
+    });
   });
 
   describe('utility methods', () => {
@@ -561,6 +573,18 @@ describe('Query Validation', () => {
     expect(getQueryComplexity('simple')).toBeGreaterThan(0);
     expect(getQueryComplexity('complex OR query AND filter')).toBeGreaterThan(getQueryComplexity('simple'));
     expect(getQueryComplexity('domain:test.com theme:CLIMATE')).toBeGreaterThan(getQueryComplexity('simple query'));
+  });
+});
+
+describe('Helper Functions', () => {
+  it('should create image tag filter', () => {
+    const filter = withImageTag('flood');
+    expect(filter).toBe('imagetag:"flood"');
+  });
+
+  it('should create image web tag filter', () => {
+    const filter = withImageWebTag('drone');
+    expect(filter).toBe('imagewebtag:"drone"');
   });
 });
 

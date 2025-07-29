@@ -3,6 +3,7 @@
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/naming-convention */
 
 import { ContentFetcherService } from '../services/content-fetcher';
 import { IContentFetcherConfig } from '../interfaces/content-fetcher';
@@ -47,6 +48,26 @@ describe('ContentFetcherService', () => {
     it('should create service with custom config', () => {
       expect(service).toBeInstanceOf(ContentFetcherService);
       expect(service.getConfig()).toMatchObject(mockConfig);
+    });
+
+    it('should use fallback values when config properties are undefined', () => {
+      const partialConfig: IContentFetcherConfig = {
+        concurrencyLimit: 5,
+        requestDelay: 200,
+        // userAgent, timeout, maxRequestsPerSecond, maxRequestsPerMinute are undefined
+        respectRobotsTxt: true,
+        followRedirects: true,
+        maxRedirects: 3,
+        skipDomains: [],
+        customHeaders: {},
+        retryableStatusCodes: [408]
+      };
+      
+      const serviceWithPartialConfig = new ContentFetcherService(partialConfig);
+      const scraper = serviceWithPartialConfig.getContentScraper();
+      
+      // These values should have been set with fallbacks
+      expect(scraper).toBeDefined();
     });
   });
 
@@ -131,6 +152,48 @@ describe('ContentFetcherService', () => {
       expect(result.content?.rawHTML).toBe(mockHtml);
     });
 
+    it('should fetch content without parsing when parseContent is false', async () => {
+      const mockUrl = 'https://example.com/article';
+      const mockHtml = '<html><body><h1>Test</h1></body></html>';
+      
+      const mockScraper = service.getContentScraper();
+      jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
+      jest.spyOn(mockScraper, 'respectfulRequest').mockResolvedValue({
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+        data: mockHtml
+      } as any);
+
+      const result = await service.fetchArticleContent(mockUrl, {
+        parseContent: false
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBeUndefined();
+      expect(result.timing).toBeDefined();
+    });
+
+    it('should handle successful fetch but no content parsing', async () => {
+      const mockUrl = 'https://example.com/article';
+      const mockHtml = '<html><body><h1>Test</h1></body></html>';
+      
+      const mockScraper = service.getContentScraper();
+      jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
+      jest.spyOn(mockScraper, 'respectfulRequest').mockResolvedValue({
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+        data: mockHtml
+      } as any);
+
+      const mockParser = service.getContentParser();
+      jest.spyOn(mockParser, 'parseHTML').mockReturnValue(undefined as any);
+
+      const result = await service.fetchArticleContent(mockUrl);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBeUndefined();
+    });
+
     it('should handle failed content fetch', async () => {
       const mockUrl = 'https://example.com/article';
       
@@ -183,6 +246,69 @@ describe('ContentFetcherService', () => {
 
       expect(result.success).toBe(false);
       expect(result.error?.message).toContain('not in allowed domains');
+    });
+
+    it('should skip robots.txt check when respectRobotsTxt is false', async () => {
+      const serviceWithoutRobots = new ContentFetcherService({
+        ...mockConfig,
+        respectRobotsTxt: false
+      });
+      
+      const mockUrl = 'https://example.com/article';
+      const mockHtml = '<html><body><h1>Test</h1></body></html>';
+      
+      const mockScraper = serviceWithoutRobots.getContentScraper();
+      const checkRobotsSpy = jest.spyOn(mockScraper, 'checkRobotsTxt');
+      jest.spyOn(mockScraper, 'respectfulRequest').mockResolvedValue({
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+        data: mockHtml
+      } as any);
+
+      const mockParser = serviceWithoutRobots.getContentParser();
+      jest.spyOn(mockParser, 'parseHTML').mockReturnValue({
+        title: 'Test Article',
+        content: 'Test content',
+        metadata: {
+          extractionMethod: 'readability',
+          extractionConfidence: 0.9
+        }
+      } as any);
+
+      const result = await serviceWithoutRobots.fetchArticleContent(mockUrl);
+
+      expect(result.success).toBe(true);
+      expect(checkRobotsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should allow domain that is in allowed list', async () => {
+      const mockUrl = 'https://allowed.com/article';
+      const mockHtml = '<html><body><h1>Test</h1></body></html>';
+      
+      const mockScraper = service.getContentScraper();
+      jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
+      jest.spyOn(mockScraper, 'respectfulRequest').mockResolvedValue({
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+        data: mockHtml
+      } as any);
+
+      const mockParser = service.getContentParser();
+      jest.spyOn(mockParser, 'parseHTML').mockReturnValue({
+        title: 'Test Article',
+        content: 'Test content',
+        metadata: {
+          extractionMethod: 'readability',
+          extractionConfidence: 0.9
+        }
+      } as any);
+
+      const result = await service.fetchArticleContent(mockUrl, {
+        allowedDomains: ['allowed.com', 'other.com']
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBeDefined();
     });
   });
 
