@@ -486,4 +486,20 @@ describe('Lookup Error Handling', () => {
     expect(upperResults).toEqual(lowerResults);
     expect(lowerResults).toEqual(mixedResults);
   });
+
+  it('should handle themes search edge case', () => {
+    // Even with themes that exist, search should handle them
+    const results = searchThemes('tax');
+    expect(results.length).toBeGreaterThan(0);
+    
+    // Search should handle themes properly
+    const categoryResults = getThemesByCategory('tax');
+    expect(categoryResults.length).toBeGreaterThan(0);
+  });
+
+  it('should handle getPopularTags with unknown category', () => {
+    // This tests line 913 where categories[category] might be undefined
+    const results = getPopularTags('unknown' as any);
+    expect(results).toEqual([]);
+  });
 });
