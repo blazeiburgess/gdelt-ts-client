@@ -379,7 +379,7 @@ export class GdeltClient {
         query: paramsOrQuery,
         ...options
       };
-    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery && 'query' in paramsOrQuery) {
       finalParams = paramsOrQuery;
     } else {
       throw new Error('Invalid parameters: expected object with query property or query string');
@@ -421,7 +421,7 @@ export class GdeltClient {
         query: paramsOrQuery,
         ...options
       };
-    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery && 'query' in paramsOrQuery) {
       finalParams = paramsOrQuery;
     } else {
       throw new Error('Invalid parameters: expected object with query property or query string');
@@ -470,7 +470,7 @@ export class GdeltClient {
           ...timespanOrOptions
         };
       }
-    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery && 'query' in paramsOrQuery) {
       finalParams = paramsOrQuery;
     } else {
       throw new Error('Invalid parameters: expected object with query property or query string');
@@ -512,7 +512,7 @@ export class GdeltClient {
         query: paramsOrQuery,
         ...options
       };
-    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery && 'query' in paramsOrQuery) {
       finalParams = paramsOrQuery;
     } else {
       throw new Error('Invalid parameters: expected object with query property or query string');
@@ -579,7 +579,7 @@ export class GdeltClient {
         query: paramsOrQuery,
         ...options
       };
-    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery && 'query' in paramsOrQuery) {
       finalParams = paramsOrQuery;
     } else {
       throw new Error('Invalid parameters: expected object with query property or query string');
@@ -620,7 +620,7 @@ export class GdeltClient {
         query: paramsOrQuery,
         ...options
       };
-    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null && 'query' in paramsOrQuery) {
+    } else if (typeof paramsOrQuery === 'object' && paramsOrQuery && 'query' in paramsOrQuery) {
       finalParams = paramsOrQuery;
     } else {
       throw new Error('Invalid parameters: expected object with query property or query string');

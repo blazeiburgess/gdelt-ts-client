@@ -22,7 +22,7 @@ import {
 export function isGdeltApiResponse(response: unknown): response is IGdeltApiResponse {
   return (
     typeof response === 'object' &&
-    response !== null &&
+    response &&
     'status' in response &&
     typeof (response as IGdeltApiResponse).status === 'string'
   );
@@ -32,7 +32,7 @@ export function isGdeltApiResponse(response: unknown): response is IGdeltApiResp
  * Type guard to check if a response has the expected object structure
  */
 export function isValidResponseObject(response: unknown): response is Record<string, unknown> {
-  return typeof response === 'object' && response !== null;
+  return typeof response === 'object' && response !== null && response !== undefined;
 }
 
 // ===== SPECIFIC RESPONSE TYPE GUARDS =====
@@ -54,7 +54,7 @@ export function isArticleListResponse(response: unknown): response is IArticleLi
     articleResponse.articles.every(article => 
       article === null || (
         typeof article === 'object' &&
-        article !== null &&
+        article &&
         'url' in article &&
         typeof article.url === 'string'
       )
@@ -79,7 +79,7 @@ export function isImageCollageResponse(response: unknown): response is IImageCol
     imageResponse.images.every(image => 
       image === null || (
         typeof image === 'object' &&
-        image !== null &&
+        image &&
         'url' in image &&
         typeof image.url === 'string'
       )
@@ -104,7 +104,7 @@ export function isTimelineResponse(response: unknown): response is ITimelineResp
     timelineResponse.timeline.every(point => 
       point === null || (
         typeof point === 'object' &&
-        point !== null &&
+        point &&
         'date' in point &&
         'value' in point &&
         typeof point.date === 'string' &&
@@ -131,7 +131,7 @@ export function isTimelineBreakdownResponse(response: unknown): response is ITim
     breakdownResponse.data.every(item => 
       item === null || (
         typeof item === 'object' &&
-        item !== null &&
+        item &&
         'date' in item &&
         typeof item.date === 'string'
       )
@@ -156,7 +156,7 @@ export function isToneChartResponse(response: unknown): response is IToneChartRe
     toneResponse.tonechart.every(entry => 
       entry === null || (
         typeof entry === 'object' &&
-        entry !== null &&
+        entry &&
         'bin' in entry &&
         'count' in entry &&
         typeof entry.bin === 'number' &&
@@ -183,7 +183,7 @@ export function isWordCloudResponse(response: unknown): response is IWordCloudRe
     wordCloudResponse.words.every(word => 
       word === null || (
         typeof word === 'object' &&
-        word !== null &&
+        word &&
         'word' in word &&
         'count' in word &&
         typeof word.word === 'string' &&
@@ -208,7 +208,7 @@ export function isStringErrorResponse(response: unknown): response is string {
 export function isErrorResponse(response: unknown): response is { error: string; code?: string } {
   return (
     typeof response === 'object' &&
-    response !== null &&
+    response &&
     'error' in response &&
     typeof (response as { error: string }).error === 'string'
   );

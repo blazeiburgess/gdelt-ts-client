@@ -16,7 +16,7 @@ function parseCustomHeaders(headersString?: string): Record<string, string> {
 
   try {
     const parsed = JSON.parse(headersString);
-    if (typeof parsed === 'object' && parsed !== null) {
+    if (typeof parsed === 'object' && parsed) {
       return parsed as Record<string, string>;
     }
   } catch (error) {
@@ -82,7 +82,7 @@ export function mergeContentFetcherConfig(
 
   // Filter out null/undefined values from userConfig
   const cleanUserConfig = Object.fromEntries(
-    Object.entries(userConfig).filter(([, value]) => value !== null && value !== undefined)
+    Object.entries(userConfig).filter(([, value]) => value != null)
   );
 
   return {
