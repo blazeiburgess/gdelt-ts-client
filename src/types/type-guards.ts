@@ -22,7 +22,7 @@ import {
 export function isGdeltApiResponse(response: unknown): response is IGdeltApiResponse {
   return (
     typeof response === 'object' &&
-    response &&
+    response !== null &&
     'status' in response &&
     typeof (response as IGdeltApiResponse).status === 'string'
   );
@@ -208,7 +208,7 @@ export function isStringErrorResponse(response: unknown): response is string {
 export function isErrorResponse(response: unknown): response is { error: string; code?: string } {
   return (
     typeof response === 'object' &&
-    response &&
+    response !== null &&
     'error' in response &&
     typeof (response as { error: string }).error === 'string'
   );
