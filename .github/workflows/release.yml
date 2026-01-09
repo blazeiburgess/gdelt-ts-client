@@ -1,24 +1,19 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
 
 permissions:
-  id-token: write       # Required for OIDC trusted publishing to npm
-  contents: write       # Required to create releases and tags
-  issues: write         # Required for semantic-release to comment on issues
-  pull-requests: write  # Required for semantic-release to comment on PRs
+  id-token: write    # Required for OIDC trusted publishing to npm
+  contents: read
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -39,7 +34,5 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+      - name: Publish to npm
+        run: npm publish --provenance --access public
