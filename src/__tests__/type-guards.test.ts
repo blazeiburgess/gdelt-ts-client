@@ -483,7 +483,7 @@ describe('Response Transformation Guards', () => {
 describe('Comprehensive Response Validator', () => {
   describe('validateResponse', () => {
     const mockTypeGuard = (response: unknown): response is any => {
-      return typeof response === 'object' && response !== null && 'data' in response;
+      return typeof response === 'object' && response !== null && response !== undefined && 'data' in response;
     };
 
     it('should validate with all options', () => {
