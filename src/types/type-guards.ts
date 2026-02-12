@@ -51,10 +51,9 @@ export function isArticleListResponse(response: unknown): response is IArticleLi
     'articles' in articleResponse &&
     Array.isArray(articleResponse.articles) &&
     // Validate that each article has required properties
-    articleResponse.articles.every(article => 
+    articleResponse.articles.every(article =>
       article === null || (
         typeof article === 'object' &&
-        article &&
         'url' in article &&
         typeof article.url === 'string'
       )
@@ -76,10 +75,9 @@ export function isImageCollageResponse(response: unknown): response is IImageCol
     'images' in imageResponse &&
     Array.isArray(imageResponse.images) &&
     // Validate that each image has required properties
-    imageResponse.images.every(image => 
+    imageResponse.images.every(image =>
       image === null || (
         typeof image === 'object' &&
-        image &&
         'url' in image &&
         typeof image.url === 'string'
       )
@@ -101,10 +99,9 @@ export function isTimelineResponse(response: unknown): response is ITimelineResp
     'timeline' in timelineResponse &&
     Array.isArray(timelineResponse.timeline) &&
     // Validate that each timeline point has required properties
-    timelineResponse.timeline.every(point => 
+    timelineResponse.timeline.every(point =>
       point === null || (
         typeof point === 'object' &&
-        point &&
         'date' in point &&
         'value' in point &&
         typeof point.date === 'string' &&
@@ -128,10 +125,9 @@ export function isTimelineBreakdownResponse(response: unknown): response is ITim
     'data' in breakdownResponse &&
     Array.isArray(breakdownResponse.data) &&
     // Validate breakdown data structure
-    breakdownResponse.data.every(item => 
+    breakdownResponse.data.every(item =>
       item === null || (
         typeof item === 'object' &&
-        item &&
         'date' in item &&
         typeof item.date === 'string'
       )
@@ -153,10 +149,9 @@ export function isToneChartResponse(response: unknown): response is IToneChartRe
     'tonechart' in toneResponse &&
     Array.isArray(toneResponse.tonechart) &&
     // Validate that each tone chart entry has required properties
-    toneResponse.tonechart.every(entry => 
+    toneResponse.tonechart.every(entry =>
       entry === null || (
         typeof entry === 'object' &&
-        entry &&
         'bin' in entry &&
         'count' in entry &&
         typeof entry.bin === 'number' &&
@@ -180,10 +175,9 @@ export function isWordCloudResponse(response: unknown): response is IWordCloudRe
     'words' in wordCloudResponse &&
     Array.isArray(wordCloudResponse.words) &&
     // Validate that each word entry has required properties
-    wordCloudResponse.words.every(word => 
+    wordCloudResponse.words.every(word =>
       word === null || (
         typeof word === 'object' &&
-        word &&
         'word' in word &&
         'count' in word &&
         typeof word.word === 'string' &&
