@@ -183,7 +183,7 @@ export class ContentScraper {
   private _parseRobotsTxt(robotsText: string): boolean {
     const lines = robotsText.split('\n').map(line => line.trim().toLowerCase());
     let inRelevantSection = false;
-    let currentUserAgent = '';
+    let currentUserAgent: string;
     let foundAllowForRelevantSection = false;
     let foundDisallowForRelevantSection = false;
     let isBotSpecificSection = false;
