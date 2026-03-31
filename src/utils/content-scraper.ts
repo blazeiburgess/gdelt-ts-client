@@ -4,9 +4,9 @@
 
 /* eslint-disable @typescript-eslint/naming-convention */
 
-import axios, { AxiosResponse } from 'axios';
 import { RateLimiter } from './rate-limiter';
 import { IRobotsInfo } from '../interfaces/content-fetcher';
+import { IFetchResponse } from '../interfaces/http-types';
 
 export class ContentScraper {
   private readonly _robotsCache: Map<string, IRobotsInfo>;
@@ -73,15 +73,15 @@ export class ContentScraper {
    * Make a respectful request to a URL
    * @param url - The URL to request
    * @param customHeaders - Optional custom headers
-   * @returns Axios response
+   * @returns Fetch response with data
    */
   public async respectfulRequest(
-    url: string, 
+    url: string,
     customHeaders?: Record<string, string>
-  ): Promise<AxiosResponse> {
+  ): Promise<IFetchResponse<string>> {
     const parsedUrl = new URL(url);
     const domain = parsedUrl.hostname;
-    
+
     // Check robots.txt
     const isAllowed = await this.checkRobotsTxt(domain);
     if (!isAllowed) {
@@ -92,7 +92,7 @@ export class ContentScraper {
     await this._rateLimiter.waitForRateLimit(domain);
 
     // Make request with appropriate headers
-    const headers = {
+    const headers: Record<string, string> = {
       'User-Agent': this._userAgent,
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
@@ -103,12 +103,57 @@ export class ContentScraper {
       ...customHeaders
     };
 
-    return axios.get(url, {
-      headers,
-      timeout: this._timeout,
-      maxRedirects: 5,
-      validateStatus: (status) => status < 500 // Allow 4xx errors to be handled by caller
-    });
+    // Set up timeout with AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this._timeout);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+        redirect: 'follow'
+      });
+
+      clearTimeout(timeoutId);
+
+      // Get response text
+      const data = await response.text();
+
+      // Extract headers into plain object
+      const responseHeaders: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+
+      const result: IFetchResponse<string> = {
+        data,
+        status: response.status,
+        statusText: response.statusText,
+        headers: responseHeaders
+      };
+
+      // Validate status (allow 4xx, reject 5xx)
+      if (response.status >= 500) {
+        const error = new Error(`Request failed with status code ${response.status}`) as Error & { response?: IFetchResponse<string> };
+        error.response = result;
+        throw error;
+      }
+
+      return result;
+
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      // Handle abort (timeout)
+      if (error instanceof Error && error.name === 'AbortError') {
+        const timeoutError = new Error(`timeout of ${this._timeout}ms exceeded`) as Error & { code?: string };
+        timeoutError.code = 'ECONNABORTED';
+        throw timeoutError;
+      }
+
+      throw error;
+    }
   }
 
   /**
@@ -143,27 +188,35 @@ export class ContentScraper {
   private async _fetchRobotsTxt(domain: string): Promise<IRobotsInfo> {
     const robotsUrl = `https://${domain}/robots.txt`;
     const now = Date.now();
-    
+
+    // Set up timeout with AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // Shorter timeout for robots.txt
+
     try {
-      const response = await axios.get(robotsUrl, {
+      const response = await fetch(robotsUrl, {
+        method: 'GET',
         headers: {
           'User-Agent': this._userAgent
         },
-        timeout: 5000, // Shorter timeout for robots.txt
-        maxRedirects: 3
+        signal: controller.signal,
+        redirect: 'follow'
       });
-      
-      const robotsText = response.data as string;
+
+      clearTimeout(timeoutId);
+
+      const robotsText = await response.text();
       const allowed = this._parseRobotsTxt(robotsText);
-      
+
       return {
         allowed,
         expiresAt: now + 3600000, // 1 hour
-        userAgentRules: robotsText.split('\n').filter(line => 
+        userAgentRules: robotsText.split('\n').filter(line =>
           line.toLowerCase().includes('user-agent')
         )
       };
     } catch (error) {
+      clearTimeout(timeoutId);
       console.warn(`Failed to fetch robots.txt for ${domain}:`, error);
       // If robots.txt is not accessible, assume allowed
       return {
