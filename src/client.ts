@@ -1,8 +1,9 @@
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { 
-  API_BASE_URL, 
-  EFormat, 
-  EMode, 
+import { HttpClient, createHttpClient } from './utils/http-client';
+import { IFetchResponse } from './interfaces/http-types';
+import {
+  API_BASE_URL,
+  EFormat,
+  EMode,
   ETimespanUnit
 } from './constants';
 import { 
@@ -60,10 +61,10 @@ import { ContentFetcherService } from './services/content-fetcher';
  */
 export class GdeltClient {
   /**
-   * The Axios instance used for making HTTP requests
+   * The HTTP client instance used for making HTTP requests
    * @private
    */
-  private readonly _axiosInstance: AxiosInstance;
+  private readonly _httpClient: HttpClient;
 
   /**
    * The base URL for the GDELT API
@@ -112,7 +113,7 @@ export class GdeltClient {
     this._maxRetries = config?.maxRetries ?? 3;
     this._retryDelay = config?.retryDelay ?? 1000;
 
-    this._axiosInstance = axios.create({
+    this._httpClient = createHttpClient({
       baseURL: this._baseUrl,
       timeout: config?.timeout ?? 30000,
       headers: {
@@ -323,35 +324,35 @@ export class GdeltClient {
   private async _makeRequest<T extends object>(params: IGdeltApiBaseParams): Promise<T> {
     // Validate parameters before making request
     this._validateParams(params);
-    
+
     const queryParams = this._buildQueryParams(params);
     let retries = 0;
 
-    const makeAxiosRequest = async (): Promise<AxiosResponse<T>> => {
+    const makeFetchRequest = async (): Promise<IFetchResponse<T>> => {
       try {
-        return await this._axiosInstance.get<T>('', {
+        return await this._httpClient.get<T>('', {
           params: queryParams
         });
       } catch (error) {
         if (this._retry && retries < this._maxRetries) {
           retries++;
           await new Promise(resolve => setTimeout(resolve, this._retryDelay));
-          return makeAxiosRequest();
+          return makeFetchRequest();
         }
         throw error;
       }
     };
 
-    const response = await makeAxiosRequest();
-    
+    const response = await makeFetchRequest();
+
     // Handle string responses (error messages)
     if (typeof response.data === 'string') {
       throw new Error(response.data);
     }
-    
+
     // Transform response data without mutating original
     const transformedData = this._transformResponse<T>(response.data, params.mode);
-    
+
     return transformedData;
   }
 
