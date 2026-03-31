@@ -31,7 +31,9 @@ export * from './utils/http-client';
 export * from './config/content-fetcher-config';
 
 // Export factory function for backward compatibility
+import { GdeltClient } from './client';
+import { IGdeltClientConfig } from './interfaces/api-parameters';
 export { GdeltClient as EnhancedGdeltClient } from './client';
-export function createEnhancedGdeltClient(config?: import('./interfaces/api-parameters').IGdeltClientConfig): import('./client').GdeltClient {
-  return new (require('./client').GdeltClient)(config);
+export function createEnhancedGdeltClient(config?: IGdeltClientConfig): GdeltClient {
+  return new GdeltClient(config);
 }
