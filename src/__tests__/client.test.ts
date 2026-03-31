@@ -302,6 +302,71 @@ describe('GdeltClient', () => {
       // Should have been called only once (no retries)
       expect(mockGet).toHaveBeenCalledTimes(1);
     });
+
+    it('should not retry on 4xx client errors', async () => {
+      // Mock the get method to fail with a 404 error
+      const error404 = new Error('Not Found');
+      (error404 as unknown as { response: { status: number } }).response = { status: 404 };
+      mockGet.mockRejectedValue(error404);
+
+      await expect(client.getArticles({ query: 'test query' }))
+        .rejects.toThrow('Not Found');
+
+      // Should have been called only once (no retries for 4xx errors)
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not retry on 400 bad request errors', async () => {
+      // Mock the get method to fail with a 400 error
+      const error400 = new Error('Bad Request');
+      (error400 as unknown as { response: { status: number } }).response = { status: 400 };
+      mockGet.mockRejectedValue(error400);
+
+      await expect(client.getArticles({ query: 'test query' }))
+        .rejects.toThrow('Bad Request');
+
+      // Should have been called only once (no retries for 4xx errors)
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should retry on 5xx server errors', async () => {
+      // Mock the get method to fail twice with 500 and then succeed
+      const error500 = new Error('Internal Server Error');
+      (error500 as unknown as { response: { status: number } }).response = { status: 500 };
+      mockGet
+        .mockRejectedValueOnce(error500)
+        .mockRejectedValueOnce(error500)
+        .mockResolvedValueOnce({
+          data: { status: 'ok', articles: [], count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        });
+
+      await client.getArticles({ query: 'test query' });
+
+      // Should have been called 3 times (initial + 2 retries)
+      expect(mockGet).toHaveBeenCalledTimes(3);
+    });
+
+    it('should retry on 503 service unavailable errors', async () => {
+      // Mock the get method to fail once with 503 and then succeed
+      const error503 = new Error('Service Unavailable');
+      (error503 as unknown as { response: { status: number } }).response = { status: 503 };
+      mockGet
+        .mockRejectedValueOnce(error503)
+        .mockResolvedValueOnce({
+          data: { status: 'ok', articles: [], count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        });
+
+      await client.getArticles({ query: 'test query' });
+
+      // Should have been called 2 times (initial + 1 retry)
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    });
   });
   
   describe('_makeRequest', () => {
@@ -1402,6 +1467,67 @@ describe('GdeltClient', () => {
 
       await expect(client.getArticles({ query: 'test' }))
         .rejects.toThrow('Invalid response data: expected object');
+    });
+  });
+
+  describe('4xx vs 5xx retry behavior', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+      // Create client with short retry delay for faster tests
+      client = new GdeltClient({
+        retry: true,
+        maxRetries: 2,
+        retryDelay: 10
+      });
+    });
+
+    it('should not retry on 401 unauthorized errors', async () => {
+      const error401 = new Error('Unauthorized');
+      (error401 as unknown as { response: { status: number } }).response = { status: 401 };
+      mockGet.mockRejectedValue(error401);
+
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Unauthorized');
+
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not retry on 403 forbidden errors', async () => {
+      const error403 = new Error('Forbidden');
+      (error403 as unknown as { response: { status: number } }).response = { status: 403 };
+      mockGet.mockRejectedValue(error403);
+
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Forbidden');
+
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not retry on 422 unprocessable entity errors', async () => {
+      const error422 = new Error('Unprocessable Entity');
+      (error422 as unknown as { response: { status: number } }).response = { status: 422 };
+      mockGet.mockRejectedValue(error422);
+
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Unprocessable Entity');
+
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should retry network errors without status code', async () => {
+      // Errors without a response status should still be retried
+      mockGet
+        .mockRejectedValueOnce(new Error('ECONNRESET'))
+        .mockResolvedValueOnce({
+          data: { status: 'ok', articles: [], count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        });
+
+      await client.getArticles({ query: 'test' });
+
+      expect(mockGet).toHaveBeenCalledTimes(2);
     });
   });
 });
