@@ -1060,40 +1060,48 @@ export class GdeltClient {
     articles: IArticle[],
     contentResults: IArticleContentResult[]
   ): IArticleWithContent[] {
-    // If there are no articles or no content results, return empty array
-    if (!articles.length || !contentResults?.length) {
+    // If there are no articles, return empty array
+    if (!articles.length) {
       return [];
     }
-    
+
     const articlesWithContent: IArticleWithContent[] = [];
     const resultMap = new Map<string, IArticleContentResult>();
-    
+
     // Create map of URL to content result
-    for (const result of contentResults) {
-      resultMap.set(result.url, result);
+    if (contentResults?.length) {
+      for (const result of contentResults) {
+        resultMap.set(result.url, result);
+      }
     }
-    
+
     // Merge articles with content
     for (const article of articles) {
       const contentResult = resultMap.get(article.url);
+
+      const articleWithContent: IArticleWithContent = {
+        ...article,
+        content: contentResult?.success ? (contentResult.content ?? null) : null
+      };
+
       if (contentResult) {
-        const articleWithContent: IArticleWithContent = {
-          ...article,
-          content: contentResult.success ? (contentResult.content ?? null) : null
-        };
-        
         if (!contentResult.success && contentResult.error) {
           articleWithContent.contentError = contentResult.error;
         }
-        
         if (contentResult.timing) {
           articleWithContent.contentTiming = contentResult.timing;
         }
-        
-        articlesWithContent.push(articleWithContent);
+      } else {
+        articleWithContent.contentError = {
+          message: 'Content fetch was not attempted for this URL',
+          code: 'NOT_ATTEMPTED',
+          retryCount: 0
+        };
       }
+
+      articlesWithContent.push(articleWithContent);
     }
-    
+
     return articlesWithContent;
   }
 
