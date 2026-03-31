@@ -334,7 +334,12 @@ export class GdeltClient {
           params: queryParams
         });
       } catch (error) {
-        if (this._retry && retries < this._maxRetries) {
+        // Don't retry 4xx client errors - they won't resolve with retry
+        const httpError = error as { response?: { status?: number } };
+        const statusCode = httpError.response?.status;
+        const isClientError = statusCode !== undefined && statusCode >= 400 && statusCode < 500;
+
+        if (this._retry && retries < this._maxRetries && !isClientError) {
           retries++;
           await new Promise(resolve => setTimeout(resolve, this._retryDelay));
           return makeFetchRequest();
@@ -1010,22 +1015,28 @@ export class GdeltClient {
     // Merge articles with content
     for (const article of articles.articles) {
       const contentResult = resultMap.get(article.url);
+
+      const articleWithContent: IArticleWithContent = {
+        ...article,
+        content: contentResult?.success ? (contentResult.content ?? null) : null
+      };
+
       if (contentResult) {
-        const articleWithContent: IArticleWithContent = {
-          ...article,
-          content: contentResult.success ? contentResult.content ?? null : null
-        };
-        
         if (!contentResult.success && contentResult.error) {
           articleWithContent.contentError = contentResult.error;
         }
-        
         if (contentResult.timing) {
           articleWithContent.contentTiming = contentResult.timing;
         }
-        
-        articlesWithContent.push(articleWithContent);
+      } else {
+        articleWithContent.contentError = {
+          message: 'Content fetch was not attempted for this URL',
+          code: 'NOT_ATTEMPTED',
+          retryCount: 0
+        };
       }
+
+      articlesWithContent.push(articleWithContent);
     }
     
     // Calculate statistics
@@ -1106,7 +1117,9 @@ export class GdeltClient {
     const successfulFetches = contentResults.filter(r => r.success).length;
     const failedFetches = contentResults.filter(r => !r.success).length;
     
-    const totalFetchTime = Math.max(...contentResults.map(r => r.timing.totalTime));
+    const totalFetchTime = contentResults.length > 0
+      ? contentResults.reduce((sum, r) => sum + r.timing.totalTime, 0)
+      : 0;
     const averageFetchTime = contentResults.length > 0 ? 
       contentResults.reduce((sum, r) => sum + r.timing.fetchTime, 0) / contentResults.length : 0;
     const averageParseTime = contentResults.length > 0 ? 
