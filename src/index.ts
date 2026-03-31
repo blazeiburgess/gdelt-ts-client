@@ -11,6 +11,7 @@ export * from './interfaces/api-parameters';
 export * from './interfaces/api-responses';
 export * from './interfaces/content-fetcher';
 export * from './interfaces/content-responses';
+export * from './interfaces/http-types';
 
 // Export main client
 export * from './client';
@@ -26,6 +27,7 @@ export * from './services/content-fetcher';
 export * from './services/content-parser';
 export * from './utils/rate-limiter';
 export * from './utils/content-scraper';
+export * from './utils/http-client';
 export * from './config/content-fetcher-config';
 
 // Export factory function for backward compatibility
