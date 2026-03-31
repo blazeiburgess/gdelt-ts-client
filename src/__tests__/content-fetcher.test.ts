@@ -387,7 +387,7 @@ describe('ContentFetcherService', () => {
         'https://example.com/article1',
         'https://fail.com/article2'
       ];
-      
+
       const mockScraper = service.getContentScraper();
       const mockParser = service.getContentParser();
 
@@ -395,12 +395,12 @@ describe('ContentFetcherService', () => {
       jest.spyOn(mockScraper, 'checkRobotsTxt').mockImplementation(async (domain) => {
         return domain !== 'fail.com';
       });
-      
+
       jest.spyOn(mockScraper, 'respectfulRequest').mockResolvedValue({
         data: '<html><body><p>Test content</p></body></html>',
         status: 200
       } as any);
-      
+
       jest.spyOn(mockParser, 'parseHTML').mockReturnValue({
         text: 'Test content',
         wordCount: 2,
@@ -417,6 +417,61 @@ describe('ContentFetcherService', () => {
       expect(results).toHaveLength(2);
       expect(results[0]?.success).toBe(true);
       expect(results[1]?.success).toBe(false);
+    });
+
+    it('should respect concurrency limit', async () => {
+      // Create a service with concurrency limit of 2
+      const limitedService = new ContentFetcherService({
+        ...mockConfig,
+        concurrencyLimit: 2
+      });
+
+      const mockUrls = [
+        'https://example.com/article1',
+        'https://example.com/article2',
+        'https://example.com/article3',
+        'https://example.com/article4'
+      ];
+
+      const mockScraper = limitedService.getContentScraper();
+      const mockParser = limitedService.getContentParser();
+
+      let maxConcurrent = 0;
+      let currentConcurrent = 0;
+
+      jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
+
+      // Track concurrent requests
+      jest.spyOn(mockScraper, 'respectfulRequest').mockImplementation(async () => {
+        currentConcurrent++;
+        maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
+
+        // Simulate some async work
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        currentConcurrent--;
+        return {
+          data: '<html><body><p>Test content</p></body></html>',
+          status: 200
+        } as any;
+      });
+
+      jest.spyOn(mockParser, 'parseHTML').mockReturnValue({
+        text: 'Test content',
+        wordCount: 2,
+        metadata: {
+          extractionMethod: 'readability',
+          extractionConfidence: 0.9
+        },
+        paywallDetected: false,
+        qualityScore: 0.8
+      } as any);
+
+      const results = await limitedService.fetchMultipleArticleContent(mockUrls);
+
+      expect(results).toHaveLength(4);
+      // The concurrency limit should be respected (max 2 concurrent requests)
+      expect(maxConcurrent).toBeLessThanOrEqual(2);
     });
   });
 
