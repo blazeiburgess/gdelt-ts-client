@@ -7,18 +7,7 @@ import { ContentParserService } from './content-parser';
 import { IContentFetcherConfig, IFetchContentOptions } from '../interfaces/content-fetcher';
 import { IArticleContentResult, IArticleContent } from '../interfaces/content-responses';
 import { mergeContentFetcherConfig } from '../config/content-fetcher-config';
-import { IFetchResponse } from '../interfaces/http-types';
-
-/**
- * Interface for error objects with response and code properties
- */
-interface IRequestError {
-  response?: { 
-    status?: number 
-  };
-  code?: string;
-  message?: string;
-}
+import { IFetchResponse, IHttpError } from '../interfaces/http-types';
 
 export class ContentFetcherService {
   private readonly _contentScraper: ContentScraper;
@@ -131,8 +120,8 @@ export class ContentFetcherService {
       };
       
       // Cast error to the correct type
-      const typedError = error as Error | IRequestError;
-      
+      const typedError = error as Error | IHttpError;
+
       const statusCode = this._getStatusCode(typedError);
       result.error = {
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -232,11 +221,11 @@ export class ContentFetcherService {
       return response;
     } catch (error) {
       // Cast error to the correct type
-      const typedError = error as Error | IRequestError;
+      const typedError = error as Error | IHttpError;
 
       const statusCode = this._getStatusCode(typedError);
 
-      if (retryCount < maxRetries && statusCode && retryableStatusCodes.includes(statusCode)) {
+      if (retryCount < maxRetries && statusCode !== undefined && retryableStatusCodes.includes(statusCode)) {
         retryCount++;
         const delay = 1000; // Default retry delay
         await this._delay(delay * retryCount); // Exponential backoff
@@ -276,18 +265,18 @@ export class ContentFetcherService {
    * @returns Error code string
    * @private
    */
-  private _getErrorCode(error: IRequestError | Error): string {
-    // Check if error has code property (IRequestError)
+  private _getErrorCode(error: IHttpError | Error): string {
+    // Check if error has code property (IHttpError)
     if ('code' in error && error.code) {
       return error.code;
     }
     
-    // Check if error has response property (IRequestError)
+    // Check if error has response property (IHttpError)
     if ('response' in error && error.response?.status) {
       return `HTTP_${error.response.status}`;
     }
     
-    // Both Error and IRequestError have message property
+    // Both Error and IHttpError have message property
     if (error.message) {
       if (error.message.includes('timeout')) {
         return 'TIMEOUT';
@@ -307,8 +296,8 @@ export class ContentFetcherService {
    * @returns HTTP status code or undefined
    * @private
    */
-  private _getStatusCode(error: IRequestError | Error): number | undefined {
-    // Check if error has response property (IRequestError)
+  private _getStatusCode(error: IHttpError | Error): number | undefined {
+    // Check if error has response property (IHttpError)
     if ('response' in error && error.response?.status) {
       return error.response.status;
     }
