@@ -147,8 +147,38 @@ export class ContentFetcherService {
     urls: string[],
     options?: IFetchContentOptions
   ): Promise<IArticleContentResult[]> {
-    const limit = async (fn: () => Promise<IArticleContentResult>): Promise<IArticleContentResult> => fn();
+    const concurrencyLimit = options?.concurrencyLimit ?? this._config.concurrencyLimit ?? 3;
     const results: IArticleContentResult[] = [];
+
+    // Semaphore-based concurrency control
+    let activeCount = 0;
+    const queue: Array<() => void> = [];
+
+    const acquire = async (): Promise<void> => {
+      if (activeCount < concurrencyLimit) {
+        activeCount++;
+        return;
+      }
+      return new Promise<void>(resolve => queue.push(resolve));
+    };
+
+    const release = (): void => {
+      activeCount--;
+      const next = queue.shift();
+      if (next) {
+        activeCount++;
+        next();
+      }
+    };
+
+    const limit = async (fn: () => Promise<IArticleContentResult>): Promise<IArticleContentResult> => {
+      await acquire();
+      try {
+        return await fn();
+      } finally {
+        release();
+      }
+    };
 
     // Group URLs by domain for better rate limiting
     const urlsByDomain = this._groupUrlsByDomain(urls);
@@ -160,12 +190,12 @@ export class ContentFetcherService {
         domainUrls.map(async url => limit(async () => {
           const result = await this.fetchArticleContent(url, options);
           completed++;
-          
+
           // Report progress if callback provided
           if (options?.onProgress) {
             options.onProgress(completed, urls.length);
           }
-          
+
           return result;
         }))
       );
