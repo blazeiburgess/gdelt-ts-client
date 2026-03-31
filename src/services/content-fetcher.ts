@@ -7,7 +7,7 @@ import { ContentParserService } from './content-parser';
 import { IContentFetcherConfig, IFetchContentOptions } from '../interfaces/content-fetcher';
 import { IArticleContentResult, IArticleContent } from '../interfaces/content-responses';
 import { mergeContentFetcherConfig } from '../config/content-fetcher-config';
-import { AxiosResponse } from 'axios';
+import { IFetchResponse } from '../interfaces/http-types';
 
 /**
  * Interface for error objects with response and code properties
@@ -223,7 +223,7 @@ export class ContentFetcherService {
    * @returns Promise that resolves to response
    * @private
    */
-  private async _fetchWithRetry(url: string, retryCount: number): Promise<AxiosResponse> {
+  private async _fetchWithRetry(url: string, retryCount: number): Promise<IFetchResponse<string>> {
     const maxRetries = this._config.maxRetries ?? 2;
     const retryableStatusCodes = this._config.retryableStatusCodes ?? [408, 429, 500, 502, 503, 504];
 
@@ -233,16 +233,16 @@ export class ContentFetcherService {
     } catch (error) {
       // Cast error to the correct type
       const typedError = error as Error | IRequestError;
-      
+
       const statusCode = this._getStatusCode(typedError);
-      
+
       if (retryCount < maxRetries && statusCode && retryableStatusCodes.includes(statusCode)) {
         retryCount++;
         const delay = 1000; // Default retry delay
         await this._delay(delay * retryCount); // Exponential backoff
         return this._fetchWithRetry(url, retryCount);
       }
-      
+
       throw error;
     }
   }
