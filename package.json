@@ -61,10 +61,5 @@
     "node": ">=20.19.0"
   },
   "private": false,
-  "license": "MIT",
-  "overrides": {
-    "@typescript-eslint/typescript-estree": {
-      "minimatch": "^10.2.1"
-    }
-  }
+  "license": "MIT"
 }
