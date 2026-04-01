@@ -15,14 +15,16 @@ import {
  * @param message - Error message
  * @param code - Error code
  * @param response - Optional HTTP response
+ * @param cause - Optional original error that caused this error
  * @returns Structured HTTP error
  */
 function createHttpError(
   message: string,
   code?: string,
-  response?: IFetchResponse
+  response?: IFetchResponse,
+  cause?: unknown
 ): IHttpError {
-  const error = new Error(message) as IHttpError;
+  const error = new Error(message, { cause }) as IHttpError;
   error.name = 'HttpError';
   if (code) {
     error.code = code;
@@ -114,6 +116,11 @@ export class HttpClient {
     };
     if (data !== undefined) {
       requestConfig.body = JSON.stringify(data);
+      // Only set Content-Type when body is present
+      requestConfig.headers = {
+        'Content-Type': 'application/json',
+        ...requestConfig.headers
+      };
     }
     return this._request<T>(url, requestConfig);
   }
@@ -174,7 +181,18 @@ export class HttpClient {
 
       let data: T;
       if (contentType.includes('application/json')) {
-        data = await response.json() as T;
+        const text = await response.text();
+        try {
+          data = JSON.parse(text) as T;
+        } catch (parseError) {
+          const preview = text.length > 512 ? text.slice(0, 512) + '...' : text;
+          throw createHttpError(
+            `Invalid JSON response: ${parseError instanceof Error ? parseError.message : 'parse error'}. Body preview: ${preview}`,
+            'JSON_PARSE_ERROR',
+            undefined,
+            parseError
+          );
+        }
       } else {
         // For non-JSON responses, return text as data
         data = await response.text() as unknown as T;
@@ -207,7 +225,9 @@ export class HttpClient {
       if (error instanceof Error && error.name === 'AbortError') {
         throw createHttpError(
           `timeout of ${timeout}ms exceeded`,
-          'ECONNABORTED'
+          'ECONNABORTED',
+          undefined,
+          error
         );
       }
 
@@ -215,7 +235,9 @@ export class HttpClient {
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw createHttpError(
           'Network Error',
-          'ECONNREFUSED'
+          'ECONNREFUSED',
+          undefined,
+          error
         );
       }
 
@@ -226,7 +248,7 @@ export class HttpClient {
 
       // Wrap other errors
       if (error instanceof Error) {
-        throw createHttpError(error.message, 'UNKNOWN');
+        throw createHttpError(error.message, 'UNKNOWN', undefined, error);
       }
 
       throw createHttpError('Unknown error occurred', 'UNKNOWN');
