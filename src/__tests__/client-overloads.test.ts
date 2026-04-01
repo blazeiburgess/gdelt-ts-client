@@ -21,6 +21,7 @@ describe('Client Method Overloads and Edge Cases', () => {
     mockedCreateHttpClient.mockClear();
 
     // Create a mock get function with default response
+    // eslint-disable-next-line @typescript-eslint/require-await
     mockGet = jest.fn().mockImplementation(async (_url, options) => {
       // Handle different API modes
       const mode = options?.params?.mode;
