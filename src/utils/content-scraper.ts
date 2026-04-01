@@ -205,6 +205,11 @@ export class ContentScraper {
 
       clearTimeout(timeoutId);
 
+      // Check for non-2xx response - treat as fetch failure
+      if (!response.ok) {
+        throw new Error(`robots.txt returned ${response.status}`);
+      }
+
       const robotsText = await response.text();
       const allowed = this._parseRobotsTxt(robotsText);
 
