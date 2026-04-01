@@ -1,4 +1,5 @@
 import { HttpClient, createHttpClient } from './utils/http-client';
+import { configureDispatcher } from './utils/dispatcher-config';
 import { IFetchResponse } from './interfaces/http-types';
 import {
   API_BASE_URL,
@@ -107,6 +108,9 @@ export class GdeltClient {
    * @param config - The client configuration
    */
   public constructor(config?: IGdeltClientConfig) {
+    // Configure global dispatcher with connection timeout (only first call has effect)
+    configureDispatcher(config?.connectTimeout);
+
     this._baseUrl = config?.baseUrl ?? API_BASE_URL;
     this._defaultFormat = config?.defaultFormat ?? EFormat.json;
     this._retry = config?.retry ?? true;
