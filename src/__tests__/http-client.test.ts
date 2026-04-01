@@ -98,6 +98,7 @@ describe('HttpClient', () => {
         status: 200,
         statusText: 'OK',
         json: async () => ({ data: 'test' }),
+        text: async () => '{"data": "test"}',
         headers: new Headers({ 'content-type': 'application/json' })
       } as Response;
 
@@ -143,6 +144,7 @@ describe('HttpClient', () => {
         status: 404,
         statusText: 'Not Found',
         json: async () => ({ error: 'Not found' }),
+        text: async () => '{"error": "Not found"}',
         headers: new Headers({ 'content-type': 'application/json' })
       } as Response;
 
@@ -158,6 +160,7 @@ describe('HttpClient', () => {
         status: 404,
         statusText: 'Not Found',
         json: async () => ({ error: 'Not found' }),
+        text: async () => '{"error": "Not found"}',
         headers: new Headers({ 'content-type': 'application/json' })
       } as Response;
 
@@ -203,6 +206,7 @@ describe('HttpClient', () => {
         status: 500,
         statusText: 'Internal Server Error',
         json: async () => ({ error: 'Server error' }),
+        text: async () => '{"error": "Server error"}',
         headers: new Headers({ 'content-type': 'application/json' })
       } as Response;
 
@@ -225,6 +229,7 @@ describe('HttpClient', () => {
         status: 200,
         statusText: 'OK',
         json: async () => ({}),
+        text: async () => '{}',
         headers: new Headers({ 'content-type': 'application/json' })
       } as Response;
 
@@ -251,6 +256,7 @@ describe('HttpClient', () => {
         status: 201,
         statusText: 'Created',
         json: async () => ({ id: 1, created: true }),
+        text: async () => '{"id": 1, "created": true}',
         headers: new Headers({ 'content-type': 'application/json' })
       } as Response;
 
@@ -278,6 +284,7 @@ describe('HttpClient', () => {
         status: 200,
         statusText: 'OK',
         json: async () => ({}),
+        text: async () => '{}',
         headers: new Headers({ 'content-type': 'application/json' })
       } as Response;
 
@@ -331,6 +338,7 @@ describe('HttpClient', () => {
         status: 200,
         statusText: 'OK',
         json: async () => ({}),
+        text: async () => '{}',
         headers: new Headers({ 'content-type': 'application/json' })
       } as Response;
 
