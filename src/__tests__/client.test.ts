@@ -1530,4 +1530,85 @@ describe('GdeltClient', () => {
       expect(mockGet).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('getImages parameter validation', () => {
+    it('should throw error for invalid getImages parameter types', async () => {
+      await expect(client.getImages(123 as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+
+    it('should throw error for null getImages parameter', async () => {
+      await expect(client.getImages(null as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+
+    it('should throw error for array getImages parameter', async () => {
+      await expect(client.getImages([] as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+  });
+
+  describe('getTimelineTone string overload', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+      mockGet.mockResolvedValue({
+        data: { status: 'ok', timeline: [] },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      });
+    });
+
+    it('should handle string query parameter for getTimelineTone', async () => {
+      await client.getTimelineTone('test query');
+
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: 'test query',
+          mode: 'timelinetone'
+        })
+      });
+    });
+
+    it('should throw error for invalid getTimelineTone parameter', async () => {
+      await expect(client.getTimelineTone(123 as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+  });
+
+  describe('image tag warning branches', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+      mockGet.mockResolvedValue({
+        data: { status: 'ok', articles: [] },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      });
+    });
+
+    it('should warn on unrecognized imagetag in query', async () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      await client.getArticles({ query: 'imagetag:"unknown_custom_tag_xyz"' });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Image tag')
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should warn on unrecognized imagewebtag in query', async () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      await client.getArticles({ query: 'imagewebtag:"unknown_custom_webtag_xyz"' });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Image web tag')
+      );
+
+      consoleSpy.mockRestore();
+    });
+  });
 });
