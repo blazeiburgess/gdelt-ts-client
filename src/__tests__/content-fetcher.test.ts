@@ -614,50 +614,54 @@ describe('ContentFetcherService', () => {
       const mockUrl = 'https://example.com/article';
       const mockScraper = service.getContentScraper();
       jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
-      
-      // Test error with code property
-      jest.spyOn(mockScraper, 'respectfulRequest').mockRejectedValueOnce({
+
+      // Test error with code property (ECONNREFUSED is retryable, need 3 rejections for maxRetries=2)
+      const connRefusedError = {
         code: 'ECONNREFUSED',
         message: 'Connection refused'
-      });
-      
+      };
+      jest.spyOn(mockScraper, 'respectfulRequest')
+        .mockRejectedValueOnce(connRefusedError)
+        .mockRejectedValueOnce(connRefusedError)
+        .mockRejectedValueOnce(connRefusedError);
+
       let result = await service.fetchArticleContent(mockUrl);
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe('ECONNREFUSED');
-      
-      // Test error with response status
+
+      // Test error with response status (404 is not retryable by default)
       jest.spyOn(mockScraper, 'respectfulRequest').mockRejectedValueOnce({
         response: { status: 404 },
         message: 'Not found'
       });
-      
+
       result = await service.fetchArticleContent(mockUrl);
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe('HTTP_404');
-      
-      // Test timeout error
+
+      // Test timeout error (not retryable by default as there's no matching code)
       jest.spyOn(mockScraper, 'respectfulRequest').mockRejectedValueOnce(
         new Error('timeout of 5000ms exceeded')
       );
-      
+
       result = await service.fetchArticleContent(mockUrl);
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe('TIMEOUT');
-      
+
       // Test robots.txt error
       jest.spyOn(mockScraper, 'respectfulRequest').mockRejectedValueOnce(
         new Error('robots.txt disallows access')
       );
-      
+
       result = await service.fetchArticleContent(mockUrl);
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe('ROBOTS_DISALLOWED');
-      
+
       // Test unknown error
       jest.spyOn(mockScraper, 'respectfulRequest').mockRejectedValueOnce(
         new Error('Some other error')
       );
-      
+
       result = await service.fetchArticleContent(mockUrl);
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe('UNKNOWN');
