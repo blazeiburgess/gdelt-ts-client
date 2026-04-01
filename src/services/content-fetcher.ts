@@ -245,6 +245,9 @@ export class ContentFetcherService {
   private async _fetchWithRetry(url: string, retryCount: number): Promise<IFetchResponse<string>> {
     const maxRetries = this._config.maxRetries ?? 2;
     const retryableStatusCodes = this._config.retryableStatusCodes ?? [408, 429, 500, 502, 503, 504];
+    const retryableNetworkErrors = this._config.retryableNetworkErrors ?? [
+      'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ENETUNREACH', 'ECONNREFUSED'
+    ];
 
     try {
       const response = await this._contentScraper.respectfulRequest(url, this._config.customHeaders);
@@ -254,8 +257,12 @@ export class ContentFetcherService {
       const typedError = error as Error | IHttpError;
 
       const statusCode = this._getStatusCode(typedError);
+      const errorCode = this._getErrorCode(typedError);
 
-      if (retryCount < maxRetries && statusCode !== undefined && retryableStatusCodes.includes(statusCode)) {
+      const isRetryableStatus = statusCode !== undefined && retryableStatusCodes.includes(statusCode);
+      const isRetryableNetwork = retryableNetworkErrors.includes(errorCode);
+
+      if (retryCount < maxRetries && (isRetryableStatus || isRetryableNetwork)) {
         retryCount++;
         const delay = 1000; // Default retry delay
         await this._delay(delay * retryCount); // Exponential backoff
