@@ -314,6 +314,14 @@ describe('HttpClient', () => {
       }
       expect(errorThrown).toBe(true);
     });
+
+    it('should wrap non-Error thrown object values', async () => {
+      // Simulate a non-Error object being thrown
+      mockFetch.mockRejectedValueOnce({ custom: 'error object', code: 'CUSTOM' });
+
+      await expect(httpClient.get('/test'))
+        .rejects.toThrow('Unknown error occurred');
+    });
   });
 
   describe('URL building', () => {
