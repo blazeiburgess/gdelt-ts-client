@@ -659,8 +659,12 @@ async function analyzeTone() {
 
 ## Requirements
 
-- Node.js >= 18.0.0
+- Node.js >= 20.19.0
 - TypeScript >= 5.0.0 (for TypeScript projects)
+
+## Known Limitations
+
+- **maxRedirects configuration**: The native `fetch` API does not support configuring the maximum number of redirects to follow. While the `maxRedirects` parameter is accepted for API compatibility, it has no effect. The browser/Node.js default redirect behavior is used instead.
 
 ## License
 

@@ -40,6 +40,12 @@ export interface IContentFetcherConfig {
   retryableStatusCodes?: number[];
 
   /**
+   * Network error codes that should trigger a retry
+   * @default ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ENETUNREACH', 'ECONNREFUSED']
+   */
+  retryableNetworkErrors?: string[];
+
+  /**
    * Maximum requests per second per domain
    * @default 1
    */

@@ -1,8 +1,10 @@
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { 
-  API_BASE_URL, 
-  EFormat, 
-  EMode, 
+import { HttpClient, createHttpClient } from './utils/http-client';
+import { configureDispatcher } from './utils/dispatcher-config';
+import { IFetchResponse } from './interfaces/http-types';
+import {
+  API_BASE_URL,
+  EFormat,
+  EMode,
   ETimespanUnit
 } from './constants';
 import { 
@@ -60,10 +62,10 @@ import { ContentFetcherService } from './services/content-fetcher';
  */
 export class GdeltClient {
   /**
-   * The Axios instance used for making HTTP requests
+   * The HTTP client instance used for making HTTP requests
    * @private
    */
-  private readonly _axiosInstance: AxiosInstance;
+  private readonly _httpClient: HttpClient;
 
   /**
    * The base URL for the GDELT API
@@ -106,13 +108,16 @@ export class GdeltClient {
    * @param config - The client configuration
    */
   public constructor(config?: IGdeltClientConfig) {
+    // Configure global dispatcher with connection timeout (only first call has effect)
+    configureDispatcher(config?.connectTimeout);
+
     this._baseUrl = config?.baseUrl ?? API_BASE_URL;
     this._defaultFormat = config?.defaultFormat ?? EFormat.json;
     this._retry = config?.retry ?? true;
     this._maxRetries = config?.maxRetries ?? 3;
     this._retryDelay = config?.retryDelay ?? 1000;
 
-    this._axiosInstance = axios.create({
+    this._httpClient = createHttpClient({
       baseURL: this._baseUrl,
       timeout: config?.timeout ?? 30000,
       headers: {
@@ -323,35 +328,40 @@ export class GdeltClient {
   private async _makeRequest<T extends object>(params: IGdeltApiBaseParams): Promise<T> {
     // Validate parameters before making request
     this._validateParams(params);
-    
+
     const queryParams = this._buildQueryParams(params);
     let retries = 0;
 
-    const makeAxiosRequest = async (): Promise<AxiosResponse<T>> => {
+    const makeFetchRequest = async (): Promise<IFetchResponse<T>> => {
       try {
-        return await this._axiosInstance.get<T>('', {
+        return await this._httpClient.get<T>('', {
           params: queryParams
         });
       } catch (error) {
-        if (this._retry && retries < this._maxRetries) {
+        // Don't retry 4xx client errors - they won't resolve with retry
+        const httpError = error as { response?: { status?: number } };
+        const statusCode = httpError.response?.status;
+        const isClientError = statusCode !== undefined && statusCode >= 400 && statusCode < 500;
+
+        if (this._retry && retries < this._maxRetries && !isClientError) {
           retries++;
           await new Promise(resolve => setTimeout(resolve, this._retryDelay));
-          return makeAxiosRequest();
+          return makeFetchRequest();
         }
         throw error;
       }
     };
 
-    const response = await makeAxiosRequest();
-    
+    const response = await makeFetchRequest();
+
     // Handle string responses (error messages)
     if (typeof response.data === 'string') {
       throw new Error(response.data);
     }
-    
+
     // Transform response data without mutating original
     const transformedData = this._transformResponse<T>(response.data, params.mode);
-    
+
     return transformedData;
   }
 
@@ -1006,23 +1016,23 @@ export class GdeltClient {
       resultMap.set(result.url, result);
     }
     
-    // Merge articles with content
+    // Merge articles with content - only include articles that have content results
     for (const article of articles.articles) {
       const contentResult = resultMap.get(article.url);
       if (contentResult) {
         const articleWithContent: IArticleWithContent = {
           ...article,
-          content: contentResult.success ? contentResult.content ?? null : null
+          content: contentResult.success ? (contentResult.content ?? null) : null
         };
-        
+
         if (!contentResult.success && contentResult.error) {
           articleWithContent.contentError = contentResult.error;
         }
-        
+
         if (contentResult.timing) {
           articleWithContent.contentTiming = contentResult.timing;
         }
-        
+
         articlesWithContent.push(articleWithContent);
       }
     }
@@ -1048,20 +1058,20 @@ export class GdeltClient {
     articles: IArticle[],
     contentResults: IArticleContentResult[]
   ): IArticleWithContent[] {
-    // If there are no articles or no content results, return empty array
+    // Return empty if no articles OR no content results
     if (!articles.length || !contentResults?.length) {
       return [];
     }
-    
+
     const articlesWithContent: IArticleWithContent[] = [];
     const resultMap = new Map<string, IArticleContentResult>();
-    
+
     // Create map of URL to content result
     for (const result of contentResults) {
       resultMap.set(result.url, result);
     }
-    
-    // Merge articles with content
+
+    // Merge articles with content - only include articles that have content results
     for (const article of articles) {
       const contentResult = resultMap.get(article.url);
       if (contentResult) {
@@ -1069,19 +1079,19 @@ export class GdeltClient {
           ...article,
           content: contentResult.success ? (contentResult.content ?? null) : null
         };
-        
+
         if (!contentResult.success && contentResult.error) {
           articleWithContent.contentError = contentResult.error;
         }
-        
+
         if (contentResult.timing) {
           articleWithContent.contentTiming = contentResult.timing;
         }
-        
+
         articlesWithContent.push(articleWithContent);
       }
     }
-    
+
     return articlesWithContent;
   }
 
@@ -1105,7 +1115,9 @@ export class GdeltClient {
     const successfulFetches = contentResults.filter(r => r.success).length;
     const failedFetches = contentResults.filter(r => !r.success).length;
     
-    const totalFetchTime = Math.max(...contentResults.map(r => r.timing.totalTime));
+    const totalFetchTime = contentResults.length > 0
+      ? Math.max(...contentResults.map(r => r.timing.totalTime))
+      : 0;
     const averageFetchTime = contentResults.length > 0 ? 
       contentResults.reduce((sum, r) => sum + r.timing.fetchTime, 0) / contentResults.length : 0;
     const averageParseTime = contentResults.length > 0 ? 

@@ -238,4 +238,14 @@ export interface IGdeltClientConfig {
    * Configuration for content fetching functionality
    */
   contentFetcher?: IContentFetcherConfig;
+
+  /**
+   * The timeout for establishing network connections in milliseconds.
+   * This is the TCP connection timeout, not the request/response timeout.
+   * Note: This is a global setting that affects all fetch operations in the process.
+   * Only the first GdeltClient's connectTimeout value is used; subsequent clients
+   * will use the already-configured value.
+   * @default 60000 (60 seconds)
+   */
+  connectTimeout?: number;
 }

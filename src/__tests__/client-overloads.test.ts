@@ -4,31 +4,84 @@
 
 import { GdeltClient } from '../client';
 import { TimespanUnitType } from '../types/enhanced-types';
+import { HttpClient, createHttpClient } from '../utils/http-client';
 
-// Mock axios to avoid actual API calls
-jest.mock('axios');
+// Mock the http-client module
+jest.mock('../utils/http-client');
+const mockedCreateHttpClient = createHttpClient as jest.MockedFunction<typeof createHttpClient>;
 
 describe('Client Method Overloads and Edge Cases', () => {
   let client: GdeltClient;
+  let mockGet: jest.Mock;
+  let mockHttpClient: { get: jest.Mock };
 
   beforeEach(() => {
+    // Reset all mocks before each test
+    jest.clearAllMocks();
+    mockedCreateHttpClient.mockClear();
+
+    // Create a mock get function with default response
+    // eslint-disable-next-line @typescript-eslint/require-await
+    mockGet = jest.fn().mockImplementation(async (_url, options) => {
+      // Handle different API modes
+      const mode = options?.params?.mode;
+
+      if (mode === 'tonechart') {
+        return {
+          data: { tonechart: [], status: 'ok' },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        };
+      }
+
+      if (mode === 'imagetag' || mode === 'imagewebtag') {
+        return {
+          data: { words: [], status: 'ok' },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        };
+      }
+
+      if (mode?.startsWith('timeline')) {
+        return {
+          data: { timeline: [], status: 'ok' },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        };
+      }
+
+      if (mode === 'imagecollage') {
+        return {
+          data: { images: [], status: 'ok', count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        };
+      }
+
+      // Default response for articles
+      return {
+        data: { articles: [], status: 'ok', count: 0 },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      };
+    });
+
+    // Create mock HttpClient instance
+    mockHttpClient = { get: mockGet };
+
+    // Mock createHttpClient to return our mock
+    mockedCreateHttpClient.mockReturnValue(mockHttpClient as unknown as HttpClient);
+
     client = new GdeltClient();
   });
 
   describe('getImages method overloads', () => {
     it('should handle invalid parameters object', async () => {
-      const mockResponse = {
-        data: {
-          images: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
       await expect(client.getImages(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
@@ -39,17 +92,6 @@ describe('Client Method Overloads and Edge Cases', () => {
 
   describe('getTimeline method overloads', () => {
     it('should handle invalid parameters object', async () => {
-      const mockResponse = {
-        data: {
-          timeline: [],
-          status: 'ok'
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
       await expect(client.getTimeline(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
@@ -60,17 +102,6 @@ describe('Client Method Overloads and Edge Cases', () => {
 
   describe('getTimelineWithArticles method overloads', () => {
     it('should handle invalid parameters object', async () => {
-      const mockResponse = {
-        data: {
-          timeline: [],
-          status: 'ok'
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
       await expect(client.getTimelineWithArticles(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
@@ -81,17 +112,6 @@ describe('Client Method Overloads and Edge Cases', () => {
 
   describe('getTimelineTone method overloads', () => {
     it('should handle invalid parameters object', async () => {
-      const mockResponse = {
-        data: {
-          timeline: [],
-          status: 'ok'
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
       await expect(client.getTimelineTone(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
@@ -102,109 +122,43 @@ describe('Client Method Overloads and Edge Cases', () => {
 
   describe('getToneChart method overloads', () => {
     it('should handle invalid parameters object', async () => {
-      const mockResponse = {
-        data: {
-          tonechart: [],
-          status: 'ok'
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
       await expect(client.getToneChart({ maxrecords: 10 } as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
     it('should handle valid object with query property', async () => {
-      const mockResponse = {
-        data: {
-          tonechart: [],
-          status: 'ok'
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
-      await expect(client.getToneChart({ 
+      await expect(client.getToneChart({
         query: 'test',
-        maxrecords: 10 
+        maxrecords: 10
       })).resolves.toBeDefined();
     });
   });
 
   describe('API methods without overloads', () => {
     it('should call getTimelineByLanguage with enhanced validation', async () => {
-      const mockResponse = {
-        data: {
-          timeline: [],
-          status: 'ok'
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
-      await expect(client.getTimelineByLanguage({ 
+      await expect(client.getTimelineByLanguage({
         query: 'test',
-        maxrecords: 10 
+        maxrecords: 10
       })).resolves.toBeDefined();
     });
 
     it('should call getTimelineByCountry with enhanced validation', async () => {
-      const mockResponse = {
-        data: {
-          timeline: [],
-          status: 'ok'
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
-      await expect(client.getTimelineByCountry({ 
+      await expect(client.getTimelineByCountry({
         query: 'test',
-        maxrecords: 10 
+        maxrecords: 10
       })).resolves.toBeDefined();
     });
 
     it('should call getImageTagCloud with enhanced validation', async () => {
-      const mockResponse = {
-        data: {
-          words: [],
-          status: 'ok'
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
-      await expect(client.getImageTagCloud({ 
+      await expect(client.getImageTagCloud({
         query: 'test',
-        maxrecords: 10 
+        maxrecords: 10
       })).resolves.toBeDefined();
     });
 
     it('should call getImageWebTagCloud with enhanced validation', async () => {
-      const mockResponse = {
-        data: {
-          words: [],
-          status: 'ok'
-        }
-      };
-      
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
-      });
-
-      await expect(client.getImageWebTagCloud({ 
+      await expect(client.getImageWebTagCloud({
         query: 'test',
-        maxrecords: 10 
+        maxrecords: 10
       })).resolves.toBeDefined();
     });
   });

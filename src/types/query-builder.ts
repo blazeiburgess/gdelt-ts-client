@@ -1287,9 +1287,10 @@ export function phrase(text: string): string {
  * @returns An OR query string
  */
 export function anyOf(...terms: string[]): string {
-  if (terms.length === 0) return '';
-  if (terms.length === 1) return terms[0] || '';
-  return `(${terms.join(' OR ')})`;
+  const filtered = terms.filter(t => t && t.trim() !== '');
+  if (filtered.length === 0) return '';
+  if (filtered.length === 1) return filtered[0]!;
+  return `(${filtered.join(' OR ')})`;
 }
 
 /**

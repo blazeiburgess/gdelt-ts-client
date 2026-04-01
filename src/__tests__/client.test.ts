@@ -1,45 +1,53 @@
 import { GdeltClient, EFormat, EMode, ETimespanUnit, ETranslation, ESort, ETimeZoom } from '../';
-import axios, { AxiosInstance } from 'axios';
+import { HttpClient, createHttpClient } from '../utils/http-client';
 
-// Mock axios to avoid making actual API calls during tests
-jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+// Mock the http-client module to avoid making actual API calls during tests
+jest.mock('../utils/http-client');
+const mockedCreateHttpClient = createHttpClient as jest.MockedFunction<typeof createHttpClient>;
 
 describe('GdeltClient', () => {
   let client: GdeltClient;
   let mockGet: jest.Mock;
+  let mockHttpClient: { get: jest.Mock };
 
   beforeEach(() => {
-    // Reset axios mocks
-    mockedAxios.create.mockClear();
-    
+    // Reset http-client mocks
+    mockedCreateHttpClient.mockClear();
+
     // Create a mock get function with default response
     mockGet = jest.fn().mockImplementation(async (_url, options) => {
       // Check if this is a tone chart request
       if (options?.params?.mode === 'tonechart') {
         return Promise.resolve({
-          data: { 
-            status: 'ok', 
+          data: {
+            status: 'ok',
             tonechart: [
               { bin: -10, count: 5, toparts: [] },
               { bin: 0, count: 10, toparts: [] },
               { bin: 10, count: 3, toparts: [] }
             ]
-          }
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
         });
       }
-      
+
       // Default response for other requests
       return Promise.resolve({
-        data: { status: 'ok', articles: [], count: 0 }
+        data: { status: 'ok', articles: [], count: 0 },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
     });
-    
-    // Mock axios.create to return an object with a get method
-    mockedAxios.create.mockReturnValue({
-      get: mockGet
-    } as unknown as AxiosInstance);
-    
+
+    // Create mock HttpClient instance
+    mockHttpClient = { get: mockGet };
+
+    // Mock createHttpClient to return our mock
+    mockedCreateHttpClient.mockReturnValue(mockHttpClient as unknown as HttpClient);
+
     // Create a new client instance after setting up mocks
     client = new GdeltClient();
   });
@@ -47,15 +55,15 @@ describe('GdeltClient', () => {
   describe('constructor', () => {
     it('should create a client with default configuration', () => {
       expect(client).toBeInstanceOf(GdeltClient);
-      
+
       // Use mock.calls directly to avoid unbound method error
-      const mockCalls = mockedAxios.create.mock.calls;
+      const mockCalls = mockedCreateHttpClient.mock.calls;
       expect(mockCalls.length).toBeGreaterThan(0);
-      
+
       // Check the configuration
       const configCall = mockCalls[0];
       expect(configCall).toBeDefined();
-      
+
       // Use optional chaining to safely access properties
       const config = configCall?.[0];
       expect(config).toBeDefined();
@@ -72,15 +80,15 @@ describe('GdeltClient', () => {
       });
 
       expect(customClient).toBeInstanceOf(GdeltClient);
-      
+
       // Use mock.calls directly to avoid unbound method error
-      const mockCalls = mockedAxios.create.mock.calls;
+      const mockCalls = mockedCreateHttpClient.mock.calls;
       expect(mockCalls.length).toBeGreaterThan(1);
-      
+
       // Check the configuration
       const configCall = mockCalls[mockCalls.length - 1];
       expect(configCall).toBeDefined();
-      
+
       // Use optional chaining to safely access properties
       const config = configCall?.[0];
       expect(config).toBeDefined();
@@ -108,27 +116,27 @@ describe('GdeltClient', () => {
     const testBuildQueryParams = async (params: Record<string, unknown>): Promise<void> => {
       // Create a custom client for this test
       const testClient = new GdeltClient();
-      
+
       // Create a custom method that doesn't override format
       const customMethod = async (params: Record<string, unknown>): Promise<unknown> => {
         // Access private method using indexing to avoid naming convention errors
         const makeRequestFn = (testClient as unknown as Record<string, Function>)['_makeRequest'];
-        
+
         // Check if makeRequestFn is defined
         if (!makeRequestFn) {
           throw new Error('_makeRequest method not found on testClient');
         }
-        
+
         // Add await to satisfy require-await rule
         return await makeRequestFn.call(testClient, {
           ...params
         });
       };
-      
-      // Replace the axios instance's get method with our mock
+
+      // Replace the HTTP client's get method with our mock
       // Access private property using indexing to avoid naming convention errors
-      (testClient as unknown as Record<string, unknown>)['_axiosInstance'] = { get: mockGet };
-      
+      (testClient as unknown as Record<string, unknown>)['_httpClient'] = { get: mockGet };
+
       // Call the custom method
       try {
         await customMethod(params);
@@ -173,24 +181,24 @@ describe('GdeltClient', () => {
       const defaultFormatClient = new GdeltClient({
         defaultFormat: EFormat.csv
       });
-      
-      // Replace the axios instance's get method with our mock
+
+      // Replace the HTTP client's get method with our mock
       // Access private property using indexing to avoid naming convention errors
-      (defaultFormatClient as unknown as Record<string, unknown>)['_axiosInstance'] = { get: mockGet };
-      
+      (defaultFormatClient as unknown as Record<string, unknown>)['_httpClient'] = { get: mockGet };
+
       // Reset the mock
       mockGet.mockClear();
-      
+
       // Call a method without specifying format
       try {
         // Access private method using indexing to avoid naming convention errors
         const makeRequestFn = (defaultFormatClient as unknown as Record<string, Function>)['_makeRequest'];
-        
+
         // Check if makeRequestFn is defined
         if (!makeRequestFn) {
           throw new Error('_makeRequest method not found on defaultFormatClient');
         }
-        
+
         await makeRequestFn.call(defaultFormatClient, {
           query: 'test query'
         });
@@ -198,7 +206,7 @@ describe('GdeltClient', () => {
         // Ignore errors, we just want to check the params
         // No variable needed since we're not using it
       }
-      
+
       expect(mockGet).toHaveBeenCalledWith('', {
         params: expect.objectContaining({
           query: 'test query',
@@ -240,7 +248,7 @@ describe('GdeltClient', () => {
     beforeEach(() => {
       // Reset the mock before each test
       mockGet.mockClear();
-      
+
       // Create a new client with shorter retry delay for faster tests
       client = new GdeltClient({
         retry: true,
@@ -248,18 +256,21 @@ describe('GdeltClient', () => {
         retryDelay: 10
       });
     });
-    
+
     it('should retry failed requests', async () => {
       // Mock the get method to fail twice and then succeed
       mockGet
         .mockRejectedValueOnce(new Error('Network error'))
         .mockRejectedValueOnce(new Error('Network error'))
         .mockResolvedValueOnce({
-          data: { status: 'ok', articles: [], count: 0 }
+          data: { status: 'ok', articles: [], count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
         });
-      
+
       await client.getArticles({ query: 'test query' });
-      
+
       // Should have been called 3 times (initial + 2 retries)
       expect(mockGet).toHaveBeenCalledTimes(3);
     });
@@ -267,29 +278,94 @@ describe('GdeltClient', () => {
     it('should throw an error after max retries', async () => {
       // Mock the get method to always fail
       mockGet.mockRejectedValue(new Error('Network error'));
-      
+
       await expect(client.getArticles({ query: 'test query' }))
         .rejects.toThrow('Network error');
-      
+
       // Should have been called 3 times (initial + 2 retries)
       expect(mockGet).toHaveBeenCalledTimes(3);
     });
-    
+
     it('should not retry when retry option is disabled', async () => {
       // Create a client with retry disabled
       const noRetryClient = new GdeltClient({ retry: false });
-      
+
       // Reset the mock
       mockGet.mockClear();
-      
+
       // Mock the get method to fail
       mockGet.mockRejectedValue(new Error('Network error'));
-      
+
       await expect(noRetryClient.getArticles({ query: 'test query' }))
         .rejects.toThrow('Network error');
-      
+
       // Should have been called only once (no retries)
       expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not retry on 4xx client errors', async () => {
+      // Mock the get method to fail with a 404 error
+      const error404 = new Error('Not Found');
+      (error404 as unknown as { response: { status: number } }).response = { status: 404 };
+      mockGet.mockRejectedValue(error404);
+
+      await expect(client.getArticles({ query: 'test query' }))
+        .rejects.toThrow('Not Found');
+
+      // Should have been called only once (no retries for 4xx errors)
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not retry on 400 bad request errors', async () => {
+      // Mock the get method to fail with a 400 error
+      const error400 = new Error('Bad Request');
+      (error400 as unknown as { response: { status: number } }).response = { status: 400 };
+      mockGet.mockRejectedValue(error400);
+
+      await expect(client.getArticles({ query: 'test query' }))
+        .rejects.toThrow('Bad Request');
+
+      // Should have been called only once (no retries for 4xx errors)
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should retry on 5xx server errors', async () => {
+      // Mock the get method to fail twice with 500 and then succeed
+      const error500 = new Error('Internal Server Error');
+      (error500 as unknown as { response: { status: number } }).response = { status: 500 };
+      mockGet
+        .mockRejectedValueOnce(error500)
+        .mockRejectedValueOnce(error500)
+        .mockResolvedValueOnce({
+          data: { status: 'ok', articles: [], count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        });
+
+      await client.getArticles({ query: 'test query' });
+
+      // Should have been called 3 times (initial + 2 retries)
+      expect(mockGet).toHaveBeenCalledTimes(3);
+    });
+
+    it('should retry on 503 service unavailable errors', async () => {
+      // Mock the get method to fail once with 503 and then succeed
+      const error503 = new Error('Service Unavailable');
+      (error503 as unknown as { response: { status: number } }).response = { status: 503 };
+      mockGet
+        .mockRejectedValueOnce(error503)
+        .mockResolvedValueOnce({
+          data: { status: 'ok', articles: [], count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        });
+
+      await client.getArticles({ query: 'test query' });
+
+      // Should have been called 2 times (initial + 1 retry)
+      expect(mockGet).toHaveBeenCalledTimes(2);
     });
   });
   
@@ -298,44 +374,53 @@ describe('GdeltClient', () => {
       // Reset the mock before each test
       mockGet.mockClear();
     });
-    
+
     it('should throw an error when API returns a string response', async () => {
       // Mock the get method to return a string response
       mockGet.mockResolvedValue({
-        data: 'API Error: Invalid query'
+        data: 'API Error: Invalid query',
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       // Expect the method to throw an error with the string response
       await expect(client.getArticles({ query: 'test query' }))
         .rejects.toThrow('API Error: Invalid query');
     });
-    
+
     it('should add status property when missing from response', async () => {
       // Mock the get method to return a response without status
       mockGet.mockResolvedValue({
-        data: { articles: [{ title: 'Test Article' }] }
+        data: { articles: [{ title: 'Test Article' }] },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       const result = await client.getArticles({ query: 'test query' });
-      
+
       // Expect the status to be added with value 'ok'
       expect(result.status).toBe('ok');
     });
-    
+
     it('should add count property for image responses when missing', async () => {
       // Mock the get method to return an image response without count
       mockGet.mockResolvedValue({
-        data: { 
-          status: 'ok', 
+        data: {
+          status: 'ok',
           images: [
             { url: 'https://example.com/image1.jpg' },
             { url: 'https://example.com/image2.jpg' }
           ]
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       const result = await client.getImages({ query: 'test query' });
-      
+
       // Expect the count to be added with the length of the images array
       expect(result.count).toBe(2);
     });
@@ -345,26 +430,32 @@ describe('GdeltClient', () => {
     beforeEach(() => {
       // Reset the mock before each test
       mockGet.mockClear();
-      
+
       // Reset the mock to use the same implementation as in the main beforeEach
       mockGet.mockImplementation(async (_url, options) => {
         // Check if this is a tone chart request
         if (options?.params?.mode === 'tonechart') {
           return Promise.resolve({
-            data: { 
-              status: 'ok', 
+            data: {
+              status: 'ok',
               tonechart: [
                 { bin: -10, count: 5, toparts: [] },
                 { bin: 0, count: 10, toparts: [] },
                 { bin: 10, count: 3, toparts: [] }
               ]
-            }
+            },
+            status: 200,
+            statusText: 'OK',
+            headers: {}
           });
         }
-        
+
         // Default response for other requests
         return Promise.resolve({
-          data: { status: 'ok', articles: [], count: 0 }
+          data: { status: 'ok', articles: [], count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
         });
       });
     });
@@ -513,7 +604,7 @@ describe('GdeltClient', () => {
     it('should throw error for maxrecords out of range', async () => {
       await expect(client.getArticles({ query: 'test', maxrecords: 0 }))
         .rejects.toThrow('maxrecords must be an integer between 1 and 250');
-      
+
       await expect(client.getArticles({ query: 'test', maxrecords: 251 }))
         .rejects.toThrow('maxrecords must be an integer between 1 and 250');
     });
@@ -521,7 +612,7 @@ describe('GdeltClient', () => {
     it('should throw error for invalid timelinesmooth', async () => {
       await expect(client.getTimeline({ query: 'test', timelinesmooth: 0 }))
         .rejects.toThrow('timelinesmooth must be an integer between 1 and 30');
-      
+
       await expect(client.getTimeline({ query: 'test', timelinesmooth: 31 }))
         .rejects.toThrow('timelinesmooth must be an integer between 1 and 30');
     });
@@ -529,7 +620,7 @@ describe('GdeltClient', () => {
     it('should throw error for invalid datetime format', async () => {
       await expect(client.getArticles({ query: 'test', startdatetime: '2025010112' }))
         .rejects.toThrow('startdatetime must be in YYYYMMDDHHMMSS format (14 digits)');
-      
+
       await expect(client.getArticles({ query: 'test', enddatetime: 'invalid' }))
         .rejects.toThrow('enddatetime must be in YYYYMMDDHHMMSS format (14 digits)');
     });
@@ -537,7 +628,7 @@ describe('GdeltClient', () => {
     it('should throw error for invalid timespan format', async () => {
       await expect(client.getArticles({ query: 'test', timespan: '1day' }))
         .rejects.toThrow('timespan must be in format like "1d", "2h", "30min", "1w", "3m"');
-      
+
       await expect(client.getArticles({ query: 'test', timespan: 'invalid' }))
         .rejects.toThrow('timespan must be in format like "1d", "2h", "30min", "1w", "3m"');
     });
@@ -545,10 +636,13 @@ describe('GdeltClient', () => {
     it('should accept valid parameters', async () => {
       // Mock successful response
       mockGet.mockResolvedValue({
-        data: { status: 'ok', articles: [], count: 0 }
+        data: { status: 'ok', articles: [], count: 0 },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
-      await expect(client.getArticles({ 
+      await expect(client.getArticles({
         query: 'test query',
         maxrecords: 100,
         timelinesmooth: 5,
@@ -603,24 +697,30 @@ describe('GdeltClient', () => {
 
     it('should handle malformed JSON responses', async () => {
       mockGet.mockResolvedValue({
-        data: null
+        data: null,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       await expect(client.getArticles({ query: 'test' }))
         .rejects.toThrow('Invalid response data: expected object');
     });
 
     it('should handle empty arrays in responses', async () => {
       mockGet.mockResolvedValue({
-        data: { 
-          status: 'ok', 
+        data: {
+          status: 'ok',
           articles: [],
-          count: 0 
-        }
+          count: 0
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       const result = await client.getArticles({ query: 'test' });
-      
+
       expect(result.articles).toEqual([]);
       expect(result.count).toBe(0);
       expect(result.status).toBe('ok');
@@ -628,33 +728,39 @@ describe('GdeltClient', () => {
 
     it('should handle responses with missing articles array', async () => {
       mockGet.mockResolvedValue({
-        data: { 
+        data: {
           status: 'ok'
           // Missing articles array
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       const result = await client.getArticles({ query: 'test' });
-      
+
       expect(result.status).toBe('ok');
       // Should not crash and should preserve the original structure
     });
 
     it('should handle responses with null values in arrays', async () => {
       mockGet.mockResolvedValue({
-        data: { 
-          status: 'ok', 
+        data: {
+          status: 'ok',
           articles: [
             { title: 'Valid Article', url: 'https://example.com/1' },
             null, // Invalid entry
             { title: 'Another Valid Article', url: 'https://example.com/2' }
           ],
           count: 3
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       const result = await client.getArticles({ query: 'test' });
-      
+
       expect(result.articles).toHaveLength(3);
       expect(result.articles[0]).toHaveProperty('title', 'Valid Article');
       expect(result.articles[1]).toBeNull();
@@ -672,14 +778,17 @@ describe('GdeltClient', () => {
       }));
 
       mockGet.mockResolvedValue({
-        data: { 
-          status: 'ok', 
+        data: {
+          status: 'ok',
           articles: largeArticlesArray
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       const result = await client.getArticles({ query: 'test' });
-      
+
       expect(result.articles).toHaveLength(1000);
       expect(result.count).toBe(1000); // Should be added by transformer
     });
@@ -698,12 +807,15 @@ describe('GdeltClient', () => {
     it('should handle invalid mode in response validation', async () => {
       // For getToneChart which has specific validation
       mockGet.mockResolvedValue({
-        data: { 
+        data: {
           status: 'ok'
           // Missing tonechart property
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       // The _transformAndValidateResponse method in client.ts is adding an empty tonechart array
       // to the response, so we need to check that the method resolves with the expected structure
       await expect(client.getToneChart({ query: 'test' }))
@@ -719,11 +831,11 @@ describe('GdeltClient', () => {
       const customClient = new GdeltClient({
         timeout: 5000
       });
-      
+
       expect(customClient).toBeInstanceOf(GdeltClient);
-      
-      // Check that axios.create was called with custom timeout
-      const mockCalls = mockedAxios.create.mock.calls;
+
+      // Check that createHttpClient was called with custom timeout
+      const mockCalls = mockedCreateHttpClient.mock.calls;
       const lastCall = mockCalls[mockCalls.length - 1];
       const config = lastCall?.[0];
       expect(config?.timeout).toBe(5000);
@@ -733,10 +845,10 @@ describe('GdeltClient', () => {
       const customClient = new GdeltClient({
         baseUrl: 'https://custom-gdelt-api.example.com'
       });
-      
+
       expect(customClient).toBeInstanceOf(GdeltClient);
-      
-      const mockCalls = mockedAxios.create.mock.calls;
+
+      const mockCalls = mockedCreateHttpClient.mock.calls;
       const lastCall = mockCalls[mockCalls.length - 1];
       const config = lastCall?.[0];
       expect(config?.baseURL).toBe('https://custom-gdelt-api.example.com');
@@ -746,15 +858,20 @@ describe('GdeltClient', () => {
       const csvClient = new GdeltClient({
         defaultFormat: EFormat.csv
       });
-      
+
       // Reset and setup mock for this client
       mockGet.mockClear();
-      mockGet.mockResolvedValue({ data: { status: 'ok', articles: [] } });
-      
-      // Replace the axios instance
+      mockGet.mockResolvedValue({
+        data: { status: 'ok', articles: [] },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      });
+
+      // Replace the HTTP client
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      (csvClient as unknown as { _axiosInstance: { get: jest.Mock } })._axiosInstance = { get: mockGet };
-      
+      (csvClient as unknown as { _httpClient: { get: jest.Mock } })._httpClient = { get: mockGet };
+
       // Call _makeRequest directly to test default format behavior
       // since getArticles overrides format to json
       try {
@@ -764,7 +881,7 @@ describe('GdeltClient', () => {
       } catch {
         // Ignore validation errors, we just want to check the params
       }
-      
+
       expect(mockGet).toHaveBeenCalledWith('', {
         params: expect.objectContaining({
           format: EFormat.csv
@@ -778,13 +895,13 @@ describe('GdeltClient', () => {
         maxRetries: 0,
         retryDelay: 100
       });
-      
+
       mockGet.mockClear();
       mockGet.mockRejectedValue(new Error('Network error'));
-      
+
       await expect(noRetryClient.getArticles({ query: 'test' }))
         .rejects.toThrow('Network error');
-      
+
       // Should only be called once with no retries
       expect(mockGet).toHaveBeenCalledTimes(1);
     });
@@ -795,14 +912,19 @@ describe('GdeltClient', () => {
         maxRetries: 1,
         retryDelay: 10 // Fast retry for testing
       });
-      
+
       mockGet.mockClear();
       mockGet
         .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValueOnce({ data: { status: 'ok', articles: [] } });
-      
+        .mockResolvedValueOnce({
+          data: { status: 'ok', articles: [] },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        });
+
       await customRetryClient.getArticles({ query: 'test' });
-      
+
       // Should be called twice (initial + 1 retry)
       expect(mockGet).toHaveBeenCalledTimes(2);
     });
@@ -816,13 +938,13 @@ describe('GdeltClient', () => {
         maxRetries: 2,
         retryDelay: 500
       });
-      
+
       expect(fullyConfiguredClient).toBeInstanceOf(GdeltClient);
-      
-      const mockCalls = mockedAxios.create.mock.calls;
+
+      const mockCalls = mockedCreateHttpClient.mock.calls;
       const lastCall = mockCalls[mockCalls.length - 1];
       const config = lastCall?.[0];
-      
+
       expect(config?.baseURL).toBe('https://custom-api.example.com');
       expect(config?.timeout).toBe(10000);
       expect(config?.headers).toEqual({
@@ -837,7 +959,12 @@ describe('GdeltClient', () => {
   describe('complex query building and edge cases', () => {
     beforeEach(() => {
       mockGet.mockClear();
-      mockGet.mockResolvedValue({ data: { status: 'ok', articles: [] } });
+      mockGet.mockResolvedValue({
+        data: { status: 'ok', articles: [] },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      });
     });
 
     it('should handle queries with special characters', async () => {
@@ -975,17 +1102,20 @@ describe('GdeltClient', () => {
     });
 
     it('should not mutate original response data', async () => {
-      const originalResponse = { 
-        status: 'ok', 
+      const originalResponse = {
+        status: 'ok',
         articles: [{ title: 'Test Article' }]
       };
-      
+
       mockGet.mockResolvedValue({
-        data: originalResponse
+        data: originalResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       await client.getArticles({ query: 'test' });
-      
+
       // Original response should not have count added
       expect('count' in originalResponse).toBe(false);
     });
@@ -994,21 +1124,26 @@ describe('GdeltClient', () => {
       const response = Object.create(null); // Object without prototype
       response.articles = [{ title: 'Test' }];
       response.status = 'ok';
-      
-      mockGet.mockResolvedValue({ data: response });
-      
+
+      mockGet.mockResolvedValue({
+        data: response,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      });
+
       const result = await client.getArticles({ query: 'test' });
-      
+
       expect(result.count).toBe(1);
       expect(result.status).toBe('ok');
     });
 
     it('should preserve original data types', async () => {
       mockGet.mockResolvedValue({
-        data: { 
+        data: {
           status: 'ok',
           articles: [
-            { 
+            {
               title: 'Test Article',
               tone: 5.5,
               seendate: '20250101120000'
@@ -1018,11 +1153,14 @@ describe('GdeltClient', () => {
             timestamp: 1234567890,
             version: '2.0'
           }
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
-      
+
       const result = await client.getArticles({ query: 'test' });
-      
+
       expect(typeof result.articles[0]?.tone).toBe('number');
       expect(typeof result.articles[0]?.seendate).toBe('string');
       expect(typeof (result as unknown as { metadata: { timestamp: number; version: string } }).metadata?.timestamp).toBe('number');
@@ -1033,7 +1171,12 @@ describe('GdeltClient', () => {
   describe('method overload parameter validation', () => {
     beforeEach(() => {
       mockGet.mockClear();
-      mockGet.mockResolvedValue({ data: { status: 'ok', articles: [] } });
+      mockGet.mockResolvedValue({
+        data: { status: 'ok', articles: [] },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      });
     });
 
     it('should handle invalid parameter types in getTimelineWithArticles', async () => {
@@ -1078,18 +1221,21 @@ describe('GdeltClient', () => {
 
     it('should handle string parameter for getToneChart', async () => {
       mockGet.mockResolvedValue({
-        data: { 
-          status: 'ok', 
+        data: {
+          status: 'ok',
           tonechart: [
             { bin: -10, count: 5, toparts: [] },
             { bin: 0, count: 10, toparts: [] },
             { bin: 10, count: 3, toparts: [] }
           ]
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await client.getToneChart('test query');
-      
+
       expect(mockGet).toHaveBeenCalledWith('', {
         params: expect.objectContaining({
           query: 'test query',
@@ -1103,7 +1249,12 @@ describe('GdeltClient', () => {
   describe('query validation with lookups', () => {
     beforeEach(() => {
       mockGet.mockClear();
-      mockGet.mockResolvedValue({ data: { status: 'ok', articles: [] } });
+      mockGet.mockResolvedValue({
+        data: { status: 'ok', articles: [] },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      });
     });
 
     it('should validate country codes in queries', async () => {
@@ -1169,7 +1320,10 @@ describe('GdeltClient', () => {
         data: {
           status: 'ok'
           // Deliberately not including tonechart property to test the validation
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       // The _transformAndValidateResponse method in client.ts is adding an empty tonechart array
@@ -1189,7 +1343,10 @@ describe('GdeltClient', () => {
         data: {
           status: 'ok',
           tonechart: [] // Empty array
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       // Now we expect this to resolve successfully since we've updated the validation
@@ -1199,52 +1356,61 @@ describe('GdeltClient', () => {
 
     it('should handle array responses in articles that need count', async () => {
       mockGet.mockResolvedValue({
-        data: { 
-          status: 'ok', 
+        data: {
+          status: 'ok',
           articles: [
             { title: 'Article 1' },
             { title: 'Article 2' },
             { title: 'Article 3' }
           ]
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       const result = await client.getArticles({ query: 'test' });
-      
+
       expect(result.count).toBe(3);
       expect(result.articles).toHaveLength(3);
     });
 
     it('should handle image responses that need count', async () => {
       mockGet.mockResolvedValue({
-        data: { 
-          status: 'ok', 
+        data: {
+          status: 'ok',
           images: [
             { url: 'https://example.com/image1.jpg' },
             { url: 'https://example.com/image2.jpg' }
           ]
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       const result = await client.getImages({ query: 'test' });
-      
+
       expect(result.count).toBe(2);
       expect(result.images).toHaveLength(2);
     });
 
     it('should handle timeline responses that need count', async () => {
       mockGet.mockResolvedValue({
-        data: { 
-          status: 'ok', 
+        data: {
+          status: 'ok',
           timeline: [
             { date: '2025-01-01', count: 10 },
             { date: '2025-01-02', count: 15 }
           ]
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       const result = await client.getTimeline({ query: 'test' });
-      
+
       expect((result as unknown as { count: number }).count).toBe(2);
       expect((result as unknown as { timeline: unknown[] }).timeline).toHaveLength(2);
     });
@@ -1257,7 +1423,10 @@ describe('GdeltClient', () => {
 
     it('should handle string error responses from API', async () => {
       mockGet.mockResolvedValue({
-        data: 'ERROR: Query syntax error'
+        data: 'ERROR: Query syntax error',
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await expect(client.getArticles({ query: 'test' }))
@@ -1266,7 +1435,10 @@ describe('GdeltClient', () => {
 
     it('should handle null response data', async () => {
       mockGet.mockResolvedValue({
-        data: null
+        data: null,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await expect(client.getArticles({ query: 'test' }))
@@ -1275,7 +1447,10 @@ describe('GdeltClient', () => {
 
     it('should handle undefined response data', async () => {
       mockGet.mockResolvedValue({
-        data: undefined
+        data: undefined,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await expect(client.getArticles({ query: 'test' }))
@@ -1284,11 +1459,156 @@ describe('GdeltClient', () => {
 
     it('should handle non-object response data', async () => {
       mockGet.mockResolvedValue({
-        data: 123
+        data: 123,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await expect(client.getArticles({ query: 'test' }))
         .rejects.toThrow('Invalid response data: expected object');
+    });
+  });
+
+  describe('4xx vs 5xx retry behavior', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+      // Create client with short retry delay for faster tests
+      client = new GdeltClient({
+        retry: true,
+        maxRetries: 2,
+        retryDelay: 10
+      });
+    });
+
+    it('should not retry on 401 unauthorized errors', async () => {
+      const error401 = new Error('Unauthorized');
+      (error401 as unknown as { response: { status: number } }).response = { status: 401 };
+      mockGet.mockRejectedValue(error401);
+
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Unauthorized');
+
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not retry on 403 forbidden errors', async () => {
+      const error403 = new Error('Forbidden');
+      (error403 as unknown as { response: { status: number } }).response = { status: 403 };
+      mockGet.mockRejectedValue(error403);
+
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Forbidden');
+
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not retry on 422 unprocessable entity errors', async () => {
+      const error422 = new Error('Unprocessable Entity');
+      (error422 as unknown as { response: { status: number } }).response = { status: 422 };
+      mockGet.mockRejectedValue(error422);
+
+      await expect(client.getArticles({ query: 'test' }))
+        .rejects.toThrow('Unprocessable Entity');
+
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    });
+
+    it('should retry network errors without status code', async () => {
+      // Errors without a response status should still be retried
+      mockGet
+        .mockRejectedValueOnce(new Error('ECONNRESET'))
+        .mockResolvedValueOnce({
+          data: { status: 'ok', articles: [], count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        });
+
+      await client.getArticles({ query: 'test' });
+
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('getImages parameter validation', () => {
+    it('should throw error for invalid getImages parameter types', async () => {
+      await expect(client.getImages(123 as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+
+    it('should throw error for null getImages parameter', async () => {
+      await expect(client.getImages(null as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+
+    it('should throw error for array getImages parameter', async () => {
+      await expect(client.getImages([] as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+  });
+
+  describe('getTimelineTone string overload', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+      mockGet.mockResolvedValue({
+        data: { status: 'ok', timeline: [] },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      });
+    });
+
+    it('should handle string query parameter for getTimelineTone', async () => {
+      await client.getTimelineTone('test query');
+
+      expect(mockGet).toHaveBeenCalledWith('', {
+        params: expect.objectContaining({
+          query: 'test query',
+          mode: 'timelinetone'
+        })
+      });
+    });
+
+    it('should throw error for invalid getTimelineTone parameter', async () => {
+      await expect(client.getTimelineTone(123 as unknown as string))
+        .rejects.toThrow('Invalid parameters: expected object with query property or query string');
+    });
+  });
+
+  describe('image tag warning branches', () => {
+    beforeEach(() => {
+      mockGet.mockClear();
+      mockGet.mockResolvedValue({
+        data: { status: 'ok', articles: [] },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      });
+    });
+
+    it('should warn on unrecognized imagetag in query', async () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      await client.getArticles({ query: 'imagetag:"unknown_custom_tag_xyz"' });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Image tag')
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should warn on unrecognized imagewebtag in query', async () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      await client.getArticles({ query: 'imagewebtag:"unknown_custom_webtag_xyz"' });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Image web tag')
+      );
+
+      consoleSpy.mockRestore();
     });
   });
 });

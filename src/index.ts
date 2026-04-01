@@ -11,6 +11,7 @@ export * from './interfaces/api-parameters';
 export * from './interfaces/api-responses';
 export * from './interfaces/content-fetcher';
 export * from './interfaces/content-responses';
+export * from './interfaces/http-types';
 
 // Export main client
 export * from './client';
@@ -26,10 +27,20 @@ export * from './services/content-fetcher';
 export * from './services/content-parser';
 export * from './utils/rate-limiter';
 export * from './utils/content-scraper';
+export * from './utils/http-client';
 export * from './config/content-fetcher-config';
 
+// Export dispatcher configuration for advanced users
+export {
+  configureDispatcher,
+  getConfiguredTimeout,
+  isDispatcherConfigured
+} from './utils/dispatcher-config';
+
 // Export factory function for backward compatibility
+import { GdeltClient } from './client';
+import { IGdeltClientConfig } from './interfaces/api-parameters';
 export { GdeltClient as EnhancedGdeltClient } from './client';
-export function createEnhancedGdeltClient(config?: import('./interfaces/api-parameters').IGdeltClientConfig): import('./client').GdeltClient {
-  return new (require('./client').GdeltClient)(config);
+export function createEnhancedGdeltClient(config?: IGdeltClientConfig): GdeltClient {
+  return new GdeltClient(config);
 }

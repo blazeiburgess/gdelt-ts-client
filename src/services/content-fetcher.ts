@@ -7,18 +7,7 @@ import { ContentParserService } from './content-parser';
 import { IContentFetcherConfig, IFetchContentOptions } from '../interfaces/content-fetcher';
 import { IArticleContentResult, IArticleContent } from '../interfaces/content-responses';
 import { mergeContentFetcherConfig } from '../config/content-fetcher-config';
-import { AxiosResponse } from 'axios';
-
-/**
- * Interface for error objects with response and code properties
- */
-interface IRequestError {
-  response?: { 
-    status?: number 
-  };
-  code?: string;
-  message?: string;
-}
+import { IFetchResponse, IHttpError } from '../interfaces/http-types';
 
 export class ContentFetcherService {
   private readonly _contentScraper: ContentScraper;
@@ -131,8 +120,8 @@ export class ContentFetcherService {
       };
       
       // Cast error to the correct type
-      const typedError = error as Error | IRequestError;
-      
+      const typedError = error as Error | IHttpError;
+
       const statusCode = this._getStatusCode(typedError);
       result.error = {
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -158,8 +147,38 @@ export class ContentFetcherService {
     urls: string[],
     options?: IFetchContentOptions
   ): Promise<IArticleContentResult[]> {
-    const limit = async (fn: () => Promise<IArticleContentResult>): Promise<IArticleContentResult> => fn();
+    const concurrencyLimit = options?.concurrencyLimit ?? this._config.concurrencyLimit ?? 3;
     const results: IArticleContentResult[] = [];
+
+    // Semaphore-based concurrency control
+    let activeCount = 0;
+    const queue: Array<() => void> = [];
+
+    const acquire = async (): Promise<void> => {
+      if (activeCount < concurrencyLimit) {
+        activeCount++;
+        return;
+      }
+      return new Promise<void>(resolve => queue.push(resolve));
+    };
+
+    const release = (): void => {
+      activeCount--;
+      const next = queue.shift();
+      if (next) {
+        activeCount++;
+        next();
+      }
+    };
+
+    const limit = async (fn: () => Promise<IArticleContentResult>): Promise<IArticleContentResult> => {
+      await acquire();
+      try {
+        return await fn();
+      } finally {
+        release();
+      }
+    };
 
     // Group URLs by domain for better rate limiting
     const urlsByDomain = this._groupUrlsByDomain(urls);
@@ -171,12 +190,12 @@ export class ContentFetcherService {
         domainUrls.map(async url => limit(async () => {
           const result = await this.fetchArticleContent(url, options);
           completed++;
-          
+
           // Report progress if callback provided
           if (options?.onProgress) {
             options.onProgress(completed, urls.length);
           }
-          
+
           return result;
         }))
       );
@@ -223,26 +242,33 @@ export class ContentFetcherService {
    * @returns Promise that resolves to response
    * @private
    */
-  private async _fetchWithRetry(url: string, retryCount: number): Promise<AxiosResponse> {
+  private async _fetchWithRetry(url: string, retryCount: number): Promise<IFetchResponse<string>> {
     const maxRetries = this._config.maxRetries ?? 2;
     const retryableStatusCodes = this._config.retryableStatusCodes ?? [408, 429, 500, 502, 503, 504];
+    const retryableNetworkErrors = this._config.retryableNetworkErrors ?? [
+      'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ENETUNREACH', 'ECONNREFUSED'
+    ];
 
     try {
       const response = await this._contentScraper.respectfulRequest(url, this._config.customHeaders);
       return response;
     } catch (error) {
       // Cast error to the correct type
-      const typedError = error as Error | IRequestError;
-      
+      const typedError = error as Error | IHttpError;
+
       const statusCode = this._getStatusCode(typedError);
-      
-      if (retryCount < maxRetries && statusCode && retryableStatusCodes.includes(statusCode)) {
+      const errorCode = this._getErrorCode(typedError);
+
+      const isRetryableStatus = statusCode !== undefined && retryableStatusCodes.includes(statusCode);
+      const isRetryableNetwork = retryableNetworkErrors.includes(errorCode);
+
+      if (retryCount < maxRetries && (isRetryableStatus || isRetryableNetwork)) {
         retryCount++;
         const delay = 1000; // Default retry delay
         await this._delay(delay * retryCount); // Exponential backoff
         return this._fetchWithRetry(url, retryCount);
       }
-      
+
       throw error;
     }
   }
@@ -276,18 +302,18 @@ export class ContentFetcherService {
    * @returns Error code string
    * @private
    */
-  private _getErrorCode(error: IRequestError | Error): string {
-    // Check if error has code property (IRequestError)
+  private _getErrorCode(error: IHttpError | Error): string {
+    // Check if error has code property (IHttpError)
     if ('code' in error && error.code) {
       return error.code;
     }
     
-    // Check if error has response property (IRequestError)
+    // Check if error has response property (IHttpError)
     if ('response' in error && error.response?.status) {
       return `HTTP_${error.response.status}`;
     }
     
-    // Both Error and IRequestError have message property
+    // Both Error and IHttpError have message property
     if (error.message) {
       if (error.message.includes('timeout')) {
         return 'TIMEOUT';
@@ -307,8 +333,8 @@ export class ContentFetcherService {
    * @returns HTTP status code or undefined
    * @private
    */
-  private _getStatusCode(error: IRequestError | Error): number | undefined {
-    // Check if error has response property (IRequestError)
+  private _getStatusCode(error: IHttpError | Error): number | undefined {
+    // Check if error has response property (IHttpError)
     if ('response' in error && error.response?.status) {
       return error.response.status;
     }
