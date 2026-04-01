@@ -24,13 +24,16 @@ function createHttpError(
   response?: IFetchResponse,
   cause?: unknown
 ): IHttpError {
-  const error = new Error(message, { cause }) as IHttpError;
+  const error = new Error(message) as IHttpError;
   error.name = 'HttpError';
   if (code) {
     error.code = code;
   }
   if (response) {
     error.response = response;
+  }
+  if (cause !== undefined) {
+    error.cause = cause;
   }
   return error;
 }
@@ -118,6 +121,7 @@ export class HttpClient {
       requestConfig.body = JSON.stringify(data);
       // Only set Content-Type when body is present
       requestConfig.headers = {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         'Content-Type': 'application/json',
         ...requestConfig.headers
       };
