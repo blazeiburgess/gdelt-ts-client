@@ -3,9 +3,13 @@
  */
 
 import { GdeltClient } from '../client';
+import { HttpClient } from '../utils/http-client';
 
-// Mock axios to avoid actual API calls
-jest.mock('axios');
+// Mock HttpClient
+jest.mock('../utils/http-client');
+
+// Get mock reference
+const mockGet = jest.fn();
 
 describe('Client Lookup Validation', () => {
   let client: GdeltClient;
@@ -13,19 +17,25 @@ describe('Client Lookup Validation', () => {
   beforeEach(() => {
     // Reset all mocks before each test
     jest.clearAllMocks();
-    
-    // Set up axios mock
-    const axios = require('axios');
-    axios.create.mockReturnValue({
-      get: jest.fn().mockResolvedValue({
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      })
+    mockGet.mockReset();
+
+    // Set up HttpClient mock
+    (HttpClient as jest.MockedClass<typeof HttpClient>).mockImplementation(() => ({
+      get: mockGet
+    } as unknown as HttpClient));
+
+    // Default mock response
+    mockGet.mockResolvedValue({
+      data: {
+        articles: [],
+        status: 'ok',
+        count: 0
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {}
     });
-    
+
     client = new GdeltClient();
   });
 
@@ -98,8 +108,11 @@ describe('Client Lookup Validation', () => {
         }
       };
       
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
+      mockGet.mockResolvedValue({
+        ...mockResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await client.getArticles('imagetag:"unknowntag" test');
@@ -120,8 +133,11 @@ describe('Client Lookup Validation', () => {
         }
       };
       
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
+      mockGet.mockResolvedValue({
+        ...mockResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await client.getArticles('imagetag:"person" test');
@@ -144,8 +160,11 @@ describe('Client Lookup Validation', () => {
         }
       };
       
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
+      mockGet.mockResolvedValue({
+        ...mockResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await client.getArticles('imagewebtag:"unknownwebtag" test');
@@ -166,8 +185,11 @@ describe('Client Lookup Validation', () => {
         }
       };
       
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
+      mockGet.mockResolvedValue({
+        ...mockResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await client.getArticles('imagewebtag:"News" test');
@@ -188,8 +210,11 @@ describe('Client Lookup Validation', () => {
         }
       };
       
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
+      mockGet.mockResolvedValue({
+        ...mockResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await expect(client.getArticles('sourcecountry:US sourcelang:eng theme:TAX_FNCACT test')).resolves.toBeDefined();
@@ -210,8 +235,11 @@ describe('Client Lookup Validation', () => {
         }
       };
       
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
+      mockGet.mockResolvedValue({
+        ...mockResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await expect(client.getArticles('simple search term')).resolves.toBeDefined();
@@ -226,8 +254,11 @@ describe('Client Lookup Validation', () => {
         }
       };
       
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
+      mockGet.mockResolvedValue({
+        ...mockResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await expect(client.getArticles('sourcecountry: test')).resolves.toBeDefined();
@@ -242,8 +273,11 @@ describe('Client Lookup Validation', () => {
         }
       };
       
-      require('axios').create.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockResponse)
+      mockGet.mockResolvedValue({
+        ...mockResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {}
       });
 
       await expect(client.getArticles('sourcecountry: sourcelang: test')).resolves.toBeDefined();
