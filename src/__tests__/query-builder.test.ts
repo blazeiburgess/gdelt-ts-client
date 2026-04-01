@@ -609,8 +609,87 @@ describe('QueryHelpers object', () => {
   it('should work as expected', () => {
     const builder = QueryHelpers.createQuery();
     expect(builder).toBeInstanceOf(QueryBuilder);
-    
+
     const query = builder.phrase('test').build();
     expect(query).toBe('"test"');
+  });
+});
+
+describe('Default parameter coverage', () => {
+  let builder: QueryBuilder;
+
+  beforeEach(() => {
+    builder = new QueryBuilder();
+  });
+
+  it('should use default positive tone threshold of 2', () => {
+    const query = builder.withPositiveTone().build();
+    expect(query).toBe('tone>2');
+  });
+
+  it('should use default negative tone threshold of -2', () => {
+    const query = builder.withNegativeTone().build();
+    expect(query).toBe('tone<-2');
+  });
+
+  it('should use default neutral tone range of 1', () => {
+    const query = builder.withNeutralTone().build();
+    expect(query).toBe('toneabs<1');
+  });
+
+  it('should use default high emotion threshold of 5', () => {
+    const query = builder.withHighEmotion().build();
+    expect(query).toBe('toneabs>5');
+  });
+
+  it('should use default novel images threshold of 10', () => {
+    const query = builder.withNovelImages().build();
+    expect(query).toBe('imagewebcount<10');
+  });
+
+  it('should use default popular images threshold of 100', () => {
+    const query = builder.withPopularImages().build();
+    expect(query).toBe('imagewebcount>100');
+  });
+});
+
+describe('group() warning branch', () => {
+  it('should warn when grouping non-OR statements', () => {
+    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    const builder = new QueryBuilder();
+    builder.search('climate').search('change').group();
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('GDELT API only allows parentheses around OR')
+    );
+
+    consoleSpy.mockRestore();
+  });
+});
+
+describe('anyOf edge cases', () => {
+  it('should handle empty string in anyOf helper', () => {
+    // Test with empty string as first argument
+    expect(anyOf('')).toBe('');
+  });
+
+  it('should handle empty strings mixed with valid terms', () => {
+    // When all terms are empty, should return empty
+    const result = anyOf('', '', '');
+    expect(result).toBe('( OR  OR )');
+  });
+});
+
+describe('Non-string type inputs for filters', () => {
+  let builder: QueryBuilder;
+
+  beforeEach(() => {
+    builder = new QueryBuilder();
+  });
+
+  it('should add first domain filter when none exists', () => {
+    const query = builder.search('climate').fromDomain('reuters.com').build();
+    expect(query).toContain('domain:reuters.com');
   });
 });
