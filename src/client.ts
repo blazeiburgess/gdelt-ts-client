@@ -1016,31 +1016,25 @@ export class GdeltClient {
       resultMap.set(result.url, result);
     }
     
-    // Merge articles with content
+    // Merge articles with content - only include articles that have content results
     for (const article of articles.articles) {
       const contentResult = resultMap.get(article.url);
-
-      const articleWithContent: IArticleWithContent = {
-        ...article,
-        content: contentResult?.success ? (contentResult.content ?? null) : null
-      };
-
       if (contentResult) {
+        const articleWithContent: IArticleWithContent = {
+          ...article,
+          content: contentResult.success ? (contentResult.content ?? null) : null
+        };
+
         if (!contentResult.success && contentResult.error) {
           articleWithContent.contentError = contentResult.error;
         }
+
         if (contentResult.timing) {
           articleWithContent.contentTiming = contentResult.timing;
         }
-      } else {
-        articleWithContent.contentError = {
-          message: 'Content fetch was not attempted for this URL',
-          code: 'NOT_ATTEMPTED',
-          retryCount: 0
-        };
-      }
 
-      articlesWithContent.push(articleWithContent);
+        articlesWithContent.push(articleWithContent);
+      }
     }
     
     // Calculate statistics
@@ -1064,8 +1058,8 @@ export class GdeltClient {
     articles: IArticle[],
     contentResults: IArticleContentResult[]
   ): IArticleWithContent[] {
-    // If there are no articles, return empty array
-    if (!articles.length) {
+    // Return empty if no articles OR no content results
+    if (!articles.length || !contentResults?.length) {
       return [];
     }
 
@@ -1073,37 +1067,29 @@ export class GdeltClient {
     const resultMap = new Map<string, IArticleContentResult>();
 
     // Create map of URL to content result
-    if (contentResults?.length) {
-      for (const result of contentResults) {
-        resultMap.set(result.url, result);
-      }
+    for (const result of contentResults) {
+      resultMap.set(result.url, result);
     }
 
-    // Merge articles with content
+    // Merge articles with content - only include articles that have content results
     for (const article of articles) {
       const contentResult = resultMap.get(article.url);
-
-      const articleWithContent: IArticleWithContent = {
-        ...article,
-        content: contentResult?.success ? (contentResult.content ?? null) : null
-      };
-
       if (contentResult) {
+        const articleWithContent: IArticleWithContent = {
+          ...article,
+          content: contentResult.success ? (contentResult.content ?? null) : null
+        };
+
         if (!contentResult.success && contentResult.error) {
           articleWithContent.contentError = contentResult.error;
         }
+
         if (contentResult.timing) {
           articleWithContent.contentTiming = contentResult.timing;
         }
-      } else {
-        articleWithContent.contentError = {
-          message: 'Content fetch was not attempted for this URL',
-          code: 'NOT_ATTEMPTED',
-          retryCount: 0
-        };
-      }
 
-      articlesWithContent.push(articleWithContent);
+        articlesWithContent.push(articleWithContent);
+      }
     }
 
     return articlesWithContent;
@@ -1130,7 +1116,7 @@ export class GdeltClient {
     const failedFetches = contentResults.filter(r => !r.success).length;
     
     const totalFetchTime = contentResults.length > 0
-      ? contentResults.reduce((sum, r) => sum + r.timing.totalTime, 0)
+      ? Math.max(...contentResults.map(r => r.timing.totalTime))
       : 0;
     const averageFetchTime = contentResults.length > 0 ? 
       contentResults.reduce((sum, r) => sum + r.timing.fetchTime, 0) / contentResults.length : 0;
