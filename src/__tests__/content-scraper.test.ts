@@ -588,7 +588,7 @@ describe('ContentScraper', () => {
 
       try {
         await scraper.respectfulRequest('https://example.com/article');
-        fail('Expected an error to be thrown');
+        expect(true).toBe(false); // Should not reach here
       } catch (error) {
         const typedError = error as Error & { code?: string };
         expect(typedError.message).toContain('timeout');
