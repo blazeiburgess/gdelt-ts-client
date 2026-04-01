@@ -119,12 +119,18 @@ export class HttpClient {
     };
     if (data !== undefined) {
       requestConfig.body = JSON.stringify(data);
-      // Only set Content-Type when body is present
-      requestConfig.headers = {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        'Content-Type': 'application/json',
-        ...requestConfig.headers
-      };
+      // Only set Content-Type when body is present and caller hasn't provided one
+      const existingHeaders = requestConfig.headers ?? {};
+      const hasContentTypeHeader = Object.keys(existingHeaders).some(
+        (headerName) => headerName.toLowerCase() === 'content-type'
+      );
+      if (!hasContentTypeHeader) {
+        requestConfig.headers = {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/json',
+          ...existingHeaders
+        };
+      }
     }
     return this._request<T>(url, requestConfig);
   }
