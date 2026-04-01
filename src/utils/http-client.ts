@@ -3,12 +3,23 @@
  * Provides axios-like interface for minimal refactoring impact
  */
 
+import { Agent, setGlobalDispatcher } from 'undici';
+
 import {
   IFetchResponse,
   IRequestConfig,
   IHttpClientConfig,
   IHttpError
 } from '../interfaces/http-types';
+
+// Configure undici with longer connect timeout
+// Node's native fetch uses undici internally with 10s connect timeout default
+// GDELT servers may need longer connection establishment time
+setGlobalDispatcher(new Agent({
+  connect: {
+    timeout: 60000 // 60 seconds for connection establishment
+  }
+}));
 
 /**
  * Creates an HTTP error with consistent structure
