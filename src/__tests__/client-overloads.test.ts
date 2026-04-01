@@ -4,47 +4,83 @@
 
 import { GdeltClient } from '../client';
 import { TimespanUnitType } from '../types/enhanced-types';
-import { HttpClient } from '../utils/http-client';
+import { HttpClient, createHttpClient } from '../utils/http-client';
 
-// Mock HttpClient
+// Mock the http-client module
 jest.mock('../utils/http-client');
-
-// Get mock reference
-const mockGet = jest.fn();
+const mockedCreateHttpClient = createHttpClient as jest.MockedFunction<typeof createHttpClient>;
 
 describe('Client Method Overloads and Edge Cases', () => {
   let client: GdeltClient;
+  let mockGet: jest.Mock;
+  let mockHttpClient: { get: jest.Mock };
 
   beforeEach(() => {
     // Reset all mocks before each test
     jest.clearAllMocks();
-    mockGet.mockReset();
+    mockedCreateHttpClient.mockClear();
 
-    // Set up HttpClient mock
-    (HttpClient as jest.MockedClass<typeof HttpClient>).mockImplementation(() => ({
-      get: mockGet
-    } as unknown as HttpClient));
+    // Create a mock get function with default response
+    mockGet = jest.fn().mockImplementation(async (_url, options) => {
+      // Handle different API modes
+      const mode = options?.params?.mode;
+
+      if (mode === 'tonechart') {
+        return {
+          data: { tonechart: [], status: 'ok' },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        };
+      }
+
+      if (mode === 'imagetag' || mode === 'imagewebtag') {
+        return {
+          data: { words: [], status: 'ok' },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        };
+      }
+
+      if (mode?.startsWith('timeline')) {
+        return {
+          data: { timeline: [], status: 'ok' },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        };
+      }
+
+      if (mode === 'imagecollage') {
+        return {
+          data: { images: [], status: 'ok', count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        };
+      }
+
+      // Default response for articles
+      return {
+        data: { articles: [], status: 'ok', count: 0 },
+        status: 200,
+        statusText: 'OK',
+        headers: {}
+      };
+    });
+
+    // Create mock HttpClient instance
+    mockHttpClient = { get: mockGet };
+
+    // Mock createHttpClient to return our mock
+    mockedCreateHttpClient.mockReturnValue(mockHttpClient as unknown as HttpClient);
 
     client = new GdeltClient();
   });
 
   describe('getImages method overloads', () => {
     it('should handle invalid parameters object', async () => {
-      const mockResponse = {
-        data: {
-          images: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
       await expect(client.getImages(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
@@ -55,20 +91,6 @@ describe('Client Method Overloads and Edge Cases', () => {
 
   describe('getTimeline method overloads', () => {
     it('should handle invalid parameters object', async () => {
-      const mockResponse = {
-        data: {
-          timeline: [],
-          status: 'ok'
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
       await expect(client.getTimeline(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
@@ -79,20 +101,6 @@ describe('Client Method Overloads and Edge Cases', () => {
 
   describe('getTimelineWithArticles method overloads', () => {
     it('should handle invalid parameters object', async () => {
-      const mockResponse = {
-        data: {
-          timeline: [],
-          status: 'ok'
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
       await expect(client.getTimelineWithArticles(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
@@ -103,20 +111,6 @@ describe('Client Method Overloads and Edge Cases', () => {
 
   describe('getTimelineTone method overloads', () => {
     it('should handle invalid parameters object', async () => {
-      const mockResponse = {
-        data: {
-          timeline: [],
-          status: 'ok'
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
       await expect(client.getTimelineTone(null as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
@@ -127,127 +121,43 @@ describe('Client Method Overloads and Edge Cases', () => {
 
   describe('getToneChart method overloads', () => {
     it('should handle invalid parameters object', async () => {
-      const mockResponse = {
-        data: {
-          tonechart: [],
-          status: 'ok'
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
       await expect(client.getToneChart({ maxrecords: 10 } as unknown as string)).rejects.toThrow('Invalid parameters: expected object with query property or query string');
     });
 
     it('should handle valid object with query property', async () => {
-      const mockResponse = {
-        data: {
-          tonechart: [],
-          status: 'ok'
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
-      await expect(client.getToneChart({ 
+      await expect(client.getToneChart({
         query: 'test',
-        maxrecords: 10 
+        maxrecords: 10
       })).resolves.toBeDefined();
     });
   });
 
   describe('API methods without overloads', () => {
     it('should call getTimelineByLanguage with enhanced validation', async () => {
-      const mockResponse = {
-        data: {
-          timeline: [],
-          status: 'ok'
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
-      await expect(client.getTimelineByLanguage({ 
+      await expect(client.getTimelineByLanguage({
         query: 'test',
-        maxrecords: 10 
+        maxrecords: 10
       })).resolves.toBeDefined();
     });
 
     it('should call getTimelineByCountry with enhanced validation', async () => {
-      const mockResponse = {
-        data: {
-          timeline: [],
-          status: 'ok'
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
-      await expect(client.getTimelineByCountry({ 
+      await expect(client.getTimelineByCountry({
         query: 'test',
-        maxrecords: 10 
+        maxrecords: 10
       })).resolves.toBeDefined();
     });
 
     it('should call getImageTagCloud with enhanced validation', async () => {
-      const mockResponse = {
-        data: {
-          words: [],
-          status: 'ok'
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
-      await expect(client.getImageTagCloud({ 
+      await expect(client.getImageTagCloud({
         query: 'test',
-        maxrecords: 10 
+        maxrecords: 10
       })).resolves.toBeDefined();
     });
 
     it('should call getImageWebTagCloud with enhanced validation', async () => {
-      const mockResponse = {
-        data: {
-          words: [],
-          status: 'ok'
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
-      await expect(client.getImageWebTagCloud({ 
+      await expect(client.getImageWebTagCloud({
         query: 'test',
-        maxrecords: 10 
+        maxrecords: 10
       })).resolves.toBeDefined();
     });
   });
