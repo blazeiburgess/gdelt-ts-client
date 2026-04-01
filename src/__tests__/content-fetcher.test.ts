@@ -473,6 +473,79 @@ describe('ContentFetcherService', () => {
       // The concurrency limit should be respected (max 2 concurrent requests)
       expect(maxConcurrent).toBeLessThanOrEqual(2);
     });
+
+    it('should use default concurrency limit when not specified', async () => {
+      // Create a service without explicit concurrency limit - use default value of 3
+      const defaultService = new ContentFetcherService();
+
+      const mockUrls = [
+        'https://example.com/article1',
+        'https://example.com/article2'
+      ];
+
+      const mockScraper = defaultService.getContentScraper();
+      const mockParser = defaultService.getContentParser();
+
+      jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
+      jest.spyOn(mockScraper, 'respectfulRequest').mockResolvedValue({
+        data: '<html><body><p>Test content</p></body></html>',
+        status: 200
+      } as any);
+
+      jest.spyOn(mockParser, 'parseHTML').mockReturnValue({
+        text: 'Test content',
+        wordCount: 2,
+        metadata: {
+          extractionMethod: 'readability',
+          extractionConfidence: 0.9
+        },
+        paywallDetected: false,
+        qualityScore: 0.8
+      } as any);
+
+      const results = await defaultService.fetchMultipleArticleContent(mockUrls);
+
+      expect(results).toHaveLength(2);
+    });
+
+    it('should use concurrency limit from options when provided', async () => {
+      const mockUrls = [
+        'https://example.com/article1',
+        'https://example.com/article2'
+      ];
+
+      const mockScraper = service.getContentScraper();
+      const mockParser = service.getContentParser();
+
+      jest.spyOn(mockScraper, 'checkRobotsTxt').mockResolvedValue(true);
+      jest.spyOn(mockScraper, 'respectfulRequest').mockResolvedValue({
+        data: '<html><body><p>Test content</p></body></html>',
+        status: 200
+      } as any);
+
+      jest.spyOn(mockParser, 'parseHTML').mockReturnValue({
+        text: 'Test content',
+        wordCount: 2,
+        metadata: {
+          extractionMethod: 'readability',
+          extractionConfidence: 0.9
+        },
+        paywallDetected: false,
+        qualityScore: 0.8
+      } as any);
+
+      const results = await service.fetchMultipleArticleContent(mockUrls, {
+        concurrencyLimit: 1
+      });
+
+      expect(results).toHaveLength(2);
+    });
+
+    it('should handle empty URL array', async () => {
+      const results = await service.fetchMultipleArticleContent([]);
+
+      expect(results).toHaveLength(0);
+    });
   });
 
   describe('getConfig', () => {
