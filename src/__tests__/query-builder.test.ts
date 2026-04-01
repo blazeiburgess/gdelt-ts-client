@@ -677,7 +677,7 @@ describe('anyOf edge cases', () => {
   it('should handle empty strings mixed with valid terms', () => {
     // When all terms are empty, should return empty
     const result = anyOf('', '', '');
-    expect(result).toBe('( OR  OR )');
+    expect(result).toBe('');
   });
 });
 
