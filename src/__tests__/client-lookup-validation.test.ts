@@ -3,29 +3,24 @@
  */
 
 import { GdeltClient } from '../client';
-import { HttpClient } from '../utils/http-client';
+import { HttpClient, createHttpClient } from '../utils/http-client';
 
-// Mock HttpClient
+// Mock the http-client module
 jest.mock('../utils/http-client');
-
-// Get mock reference
-const mockGet = jest.fn();
+const mockedCreateHttpClient = createHttpClient as jest.MockedFunction<typeof createHttpClient>;
 
 describe('Client Lookup Validation', () => {
   let client: GdeltClient;
+  let mockGet: jest.Mock;
+  let mockHttpClient: { get: jest.Mock };
 
   beforeEach(() => {
     // Reset all mocks before each test
     jest.clearAllMocks();
-    mockGet.mockReset();
+    mockedCreateHttpClient.mockClear();
 
-    // Set up HttpClient mock
-    (HttpClient as jest.MockedClass<typeof HttpClient>).mockImplementation(() => ({
-      get: mockGet
-    } as unknown as HttpClient));
-
-    // Default mock response
-    mockGet.mockResolvedValue({
+    // Create a mock get function with default response
+    mockGet = jest.fn().mockResolvedValue({
       data: {
         articles: [],
         status: 'ok',
@@ -35,6 +30,12 @@ describe('Client Lookup Validation', () => {
       statusText: 'OK',
       headers: {}
     });
+
+    // Create mock HttpClient instance
+    mockHttpClient = { get: mockGet };
+
+    // Mock createHttpClient to return our mock
+    mockedCreateHttpClient.mockReturnValue(mockHttpClient as unknown as HttpClient);
 
     client = new GdeltClient();
   });
@@ -99,51 +100,21 @@ describe('Client Lookup Validation', () => {
   describe('Image tag validation', () => {
     it('should warn for unknown image tags', async () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
-      const mockResponse = {
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
 
       await client.getArticles('imagetag:"unknowntag" test');
-      
+
       expect(consoleSpy).toHaveBeenCalledWith('Image tag "unknowntag" is not in the common tags list. This may still be valid.');
-      
+
       consoleSpy.mockRestore();
     });
 
     it('should not warn for valid image tags', async () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
-      const mockResponse = {
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
 
       await client.getArticles('imagetag:"person" test');
-      
+
       expect(consoleSpy).not.toHaveBeenCalled();
-      
+
       consoleSpy.mockRestore();
     });
   });
@@ -151,72 +122,27 @@ describe('Client Lookup Validation', () => {
   describe('Image web tag validation', () => {
     it('should warn for unknown image web tags', async () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
-      const mockResponse = {
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
 
       await client.getArticles('imagewebtag:"unknownwebtag" test');
-      
+
       expect(consoleSpy).toHaveBeenCalledWith('Image web tag "unknownwebtag" is not in the common tags list. This may still be valid.');
-      
+
       consoleSpy.mockRestore();
     });
 
     it('should not warn for valid image web tags', async () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
-      const mockResponse = {
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
 
       await client.getArticles('imagewebtag:"News" test');
-      
+
       expect(consoleSpy).not.toHaveBeenCalled();
-      
+
       consoleSpy.mockRestore();
     });
   });
 
   describe('Complex query validation', () => {
     it('should validate multiple lookup types in one query', async () => {
-      const mockResponse = {
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
       await expect(client.getArticles('sourcecountry:US sourcelang:eng theme:TAX_FNCACT test')).resolves.toBeDefined();
     });
 
@@ -227,59 +153,14 @@ describe('Client Lookup Validation', () => {
 
   describe('Edge cases', () => {
     it('should handle queries with no lookup operators', async () => {
-      const mockResponse = {
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
       await expect(client.getArticles('simple search term')).resolves.toBeDefined();
     });
 
     it('should handle malformed lookup patterns', async () => {
-      const mockResponse = {
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
       await expect(client.getArticles('sourcecountry: test')).resolves.toBeDefined();
     });
 
     it('should handle empty lookup values', async () => {
-      const mockResponse = {
-        data: {
-          articles: [],
-          status: 'ok',
-          count: 0
-        }
-      };
-      
-      mockGet.mockResolvedValue({
-        ...mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {}
-      });
-
       await expect(client.getArticles('sourcecountry: sourcelang: test')).resolves.toBeDefined();
     });
   });
