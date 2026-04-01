@@ -60,4 +60,6 @@ export interface IHttpError extends Error {
   code?: string;
   /** Original request config */
   config?: IRequestConfig;
+  /** Original error that caused this error */
+  cause?: unknown;
 }
