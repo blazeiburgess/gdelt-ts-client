@@ -30,6 +30,13 @@ export * from './utils/content-scraper';
 export * from './utils/http-client';
 export * from './config/content-fetcher-config';
 
+// Export dispatcher configuration for advanced users
+export {
+  configureDispatcher,
+  getConfiguredTimeout,
+  isDispatcherConfigured
+} from './utils/dispatcher-config';
+
 // Export factory function for backward compatibility
 import { GdeltClient } from './client';
 import { IGdeltClientConfig } from './interfaces/api-parameters';
