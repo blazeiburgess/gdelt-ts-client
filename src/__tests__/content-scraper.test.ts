@@ -573,4 +573,64 @@ describe('ContentScraper', () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('AbortError handling', () => {
+    it('should handle AbortError timeout and convert to custom error', async () => {
+      mockRateLimiter.waitForRateLimit.mockResolvedValue();
+
+      // Mock checkRobotsTxt to return true (allowed)
+      const checkRobotsSpy = jest.spyOn(scraper, 'checkRobotsTxt').mockResolvedValueOnce(true);
+
+      // Create an AbortError (simulating timeout)
+      const abortError = new Error('The operation was aborted');
+      abortError.name = 'AbortError';
+      mockFetch.mockRejectedValueOnce(abortError);
+
+      try {
+        await scraper.respectfulRequest('https://example.com/article');
+        fail('Expected an error to be thrown');
+      } catch (error) {
+        const typedError = error as Error & { code?: string };
+        expect(typedError.message).toContain('timeout');
+        expect(typedError.code).toBe('ECONNABORTED');
+      }
+
+      checkRobotsSpy.mockRestore();
+    });
+  });
+
+  describe('robots.txt parsing edge cases', () => {
+    it('should return true for empty robots.txt content', async () => {
+      // Mock fetch to return empty robots.txt
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => ''
+      } as Response);
+
+      const result = await scraper.checkRobotsTxt('empty-robots.com');
+      expect(result).toBe(true);
+    });
+
+    it('should return true for robots.txt with only comments', async () => {
+      // Mock fetch to return robots.txt with only comments
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => '# This is a comment\n# Another comment\nCrawl-delay: 1'
+      } as Response);
+
+      const result = await scraper.checkRobotsTxt('comments-only.com');
+      expect(result).toBe(true);
+    });
+
+    it('should return true when no user-agent rules match', async () => {
+      // Mock fetch to return robots.txt with rules only for other bots
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => 'User-agent: Googlebot\nDisallow: /\n\nUser-agent: Bingbot\nDisallow: /'
+      } as Response);
+
+      const result = await scraper.checkRobotsTxt('other-bots.com');
+      expect(result).toBe(true);
+    });
+  });
 });
