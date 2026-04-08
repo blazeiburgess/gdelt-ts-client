@@ -683,16 +683,72 @@ describe('GdeltClient', () => {
     it('should handle rate limiting errors', async () => {
       const rateLimitError = new Error('Request failed with status code 429');
       rateLimitError.name = 'AxiosError';
-      (rateLimitError as unknown as { response: { status: number; statusText: string; headers: Record<string, string> } }).response = { 
-        status: 429, 
+      (rateLimitError as unknown as { response: { status: number; statusText: string; headers: Record<string, string> } }).response = {
+        status: 429,
         statusText: 'Too Many Requests',
-        headers: { retryAfter: '60' }
+        headers: { 'retry-after': '1' }
       };
-      
+
       mockGet.mockRejectedValue(rateLimitError);
-      
-      await expect(client.getArticles({ query: 'test' }))
+
+      // 429s are retried with backoff, so use a no-retry client to test error propagation
+      const noRetryClient = new GdeltClient({ retry: false });
+      await expect(noRetryClient.getArticles({ query: 'test' }))
         .rejects.toThrow('Request failed with status code 429');
+    });
+
+    it('should retry on 429 with exponential backoff', async () => {
+      const rateLimitError = new Error('Request failed with status code 429');
+      rateLimitError.name = 'AxiosError';
+      (rateLimitError as unknown as { response: { status: number; statusText: string; headers: Record<string, string> } }).response = {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: {}
+      };
+
+      // Fail twice with 429, then succeed
+      mockGet
+        .mockRejectedValueOnce(rateLimitError)
+        .mockRejectedValueOnce(rateLimitError)
+        .mockResolvedValueOnce({
+          data: { status: 'ok', articles: [], count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        });
+
+      const retryClient = new GdeltClient({ retry: true, maxRetries: 3, retryDelay: 10 });
+      const result = await retryClient.getArticles({ query: 'test' });
+      expect(result).toBeDefined();
+      expect(mockGet).toHaveBeenCalledTimes(3);
+    });
+
+    it('should honor Retry-After header on 429', async () => {
+      const rateLimitError = new Error('Request failed with status code 429');
+      rateLimitError.name = 'AxiosError';
+      (rateLimitError as unknown as { response: { status: number; statusText: string; headers: Record<string, string> } }).response = {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: { 'retry-after': '1' }
+      };
+
+      mockGet
+        .mockRejectedValueOnce(rateLimitError)
+        .mockResolvedValueOnce({
+          data: { status: 'ok', articles: [], count: 0 },
+          status: 200,
+          statusText: 'OK',
+          headers: {}
+        });
+
+      const retryClient = new GdeltClient({ retry: true, maxRetries: 2, retryDelay: 10 });
+      const start = Date.now();
+      const result = await retryClient.getArticles({ query: 'test' });
+      const elapsed = Date.now() - start;
+
+      expect(result).toBeDefined();
+      expect(elapsed).toBeGreaterThanOrEqual(900);
+      expect(mockGet).toHaveBeenCalledTimes(2);
     });
 
     it('should handle malformed JSON responses', async () => {
