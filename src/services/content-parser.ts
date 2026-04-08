@@ -19,10 +19,13 @@ export class ContentParserService {
     if (!this._cachedJSDOM) {
       try {
         this._cachedJSDOM = (require('jsdom') as typeof import('jsdom')).JSDOM;
-      } catch {
-        throw new MissingDependencyError(
-          'jsdom is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
-        );
+      } catch (error: unknown) {
+        if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'MODULE_NOT_FOUND') {
+          throw new MissingDependencyError(
+            'jsdom is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
+          );
+        }
+        throw error;
       }
     }
     return this._cachedJSDOM;
@@ -32,10 +35,13 @@ export class ContentParserService {
     if (!this._cachedReadability) {
       try {
         this._cachedReadability = (require('@mozilla/readability') as typeof import('@mozilla/readability')).Readability;
-      } catch {
-        throw new MissingDependencyError(
-          '@mozilla/readability is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
-        );
+      } catch (error: unknown) {
+        if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'MODULE_NOT_FOUND') {
+          throw new MissingDependencyError(
+            '@mozilla/readability is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
+          );
+        }
+        throw error;
       }
     }
     return this._cachedReadability;
@@ -55,7 +61,7 @@ export class ContentParserService {
         return readabilityResult;
       }
     } catch (error) {
-      if (error instanceof MissingDependencyError) {
+      if (error instanceof MissingDependencyError && error.message.includes('jsdom')) {
         throw error;
       }
       console.warn('Readability extraction failed:', error);
