@@ -148,6 +148,20 @@ describe('ContentParserService', () => {
   });
 
   describe('parseHTML', () => {
+    it('should fall back to heuristics when readability throws a non-dependency error', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      jest.spyOn(service as any, '_tryReadability').mockImplementation(() => {
+        throw new Error('unexpected parse failure');
+      });
+
+      const result = service.parseHTML(HTML_WITH_ARTICLE, 'https://example.com/article');
+
+      expect(warnSpy).toHaveBeenCalledWith('Readability extraction failed:', expect.any(Error));
+      expect(result).toBeDefined();
+      expect(result.text).toBeTruthy();
+      warnSpy.mockRestore();
+    });
+
     it('should parse HTML and extract content successfully', () => {
       const url = 'https://example.com/article';
       const result = service.parseHTML(HTML_WITH_ARTICLE, url);
