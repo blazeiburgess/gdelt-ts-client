@@ -289,6 +289,20 @@ describe('ContentParserService', () => {
       expect(Object.keys(metadata.article ?? {})).toHaveLength(0);
       expect(metadata.canonicalUrl).toBe('');
     });
+
+    it('should skip meta tags with missing property or content attributes', () => {
+      const html = `<html><head>
+        <meta property="og:title">
+        <meta content="value without property">
+        <meta name="twitter:card">
+        <meta property="article:author">
+      </head><body></body></html>`;
+      const metadata = service.extractMetadata(html);
+
+      expect(Object.keys(metadata.openGraph ?? {})).toHaveLength(0);
+      expect(Object.keys(metadata.twitterCard ?? {})).toHaveLength(0);
+      expect(Object.keys(metadata.article ?? {})).toHaveLength(0);
+    });
   });
 
   describe('_stripHtml', () => {
