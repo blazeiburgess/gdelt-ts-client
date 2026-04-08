@@ -61,7 +61,6 @@ export class ContentParserService {
         return readabilityResult;
       }
     } catch (error) {
-      console.error('DEBUG caught error:', error instanceof MissingDependencyError, error instanceof Error, (error as Error).constructor?.name, (error as Error).message);
       if (error instanceof MissingDependencyError && error.message.includes('jsdom')) {
         throw error;
       }
@@ -69,7 +68,6 @@ export class ContentParserService {
     }
 
     // 2. Fallback to heuristic extraction
-    console.error('DEBUG about to call heuristics');
     return this._extractUsingHeuristics(html, url);
   }
 
