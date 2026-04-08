@@ -347,7 +347,7 @@ export class GdeltClient {
           retries++;
           const backoff = isRateLimited
             ? this._getRateLimitDelay(retries, httpError.response?.headers)
-            : this._retryDelay * retries;
+            : this._retryDelay;
           await new Promise(resolve => setTimeout(resolve, backoff));
           return makeFetchRequest();
         }
