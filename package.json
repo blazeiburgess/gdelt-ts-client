@@ -27,12 +27,23 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@mozilla/readability": "^0.6.0",
-    "jsdom": "^26.1.0",
     "undici": "^7.8.0"
+  },
+  "peerDependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "jsdom": "^26.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@mozilla/readability": {
+      "optional": true
+    },
+    "jsdom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@mozilla/readability": "^0.6.0",
     "@types/jest": "^30.0.0",
     "@types/jsdom": "^21.1.7",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
@@ -40,6 +51,7 @@
     "eslint": "^10.0.1",
     "globals": "^13.24.0",
     "jest": "^30.0.4",
+    "jsdom": "^26.1.0",
     "ts-jest": "^29.4.0",
     "typescript": "^5.5.3"
   },
