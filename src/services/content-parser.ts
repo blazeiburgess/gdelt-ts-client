@@ -48,6 +48,9 @@ export class ContentParserService {
         return readabilityResult;
       }
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Install it with:')) {
+        throw error;
+      }
       console.warn('Readability extraction failed:', error);
     }
 
