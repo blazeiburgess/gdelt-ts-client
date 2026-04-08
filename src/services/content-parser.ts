@@ -15,7 +15,7 @@ export class ContentParserService {
   private _cachedJSDOM: typeof import('jsdom').JSDOM | undefined;
   private _cachedReadability: typeof import('@mozilla/readability').Readability | undefined;
 
-  private get _JSDOM(): typeof import('jsdom').JSDOM {
+  private get _jsdom(): typeof import('jsdom').JSDOM {
     if (!this._cachedJSDOM) {
       try {
         this._cachedJSDOM = (require('jsdom') as typeof import('jsdom')).JSDOM;
@@ -28,7 +28,7 @@ export class ContentParserService {
     return this._cachedJSDOM;
   }
 
-  private get _Readability(): typeof import('@mozilla/readability').Readability {
+  private get _readability(): typeof import('@mozilla/readability').Readability {
     if (!this._cachedReadability) {
       try {
         this._cachedReadability = (require('@mozilla/readability') as typeof import('@mozilla/readability')).Readability;
@@ -94,7 +94,7 @@ export class ContentParserService {
    * @returns Content metadata
    */
   public extractMetadata(html: string): IContentMetadata {
-    const dom = new this._JSDOM(html);
+    const dom = new this._jsdom(html);
     const document = dom.window.document;
     
     const openGraph: Record<string, string> = {};
@@ -153,10 +153,10 @@ export class ContentParserService {
    * @private
    */
   private _tryReadability(html: string, url: string): IArticleContent | null {
-    const dom = new this._JSDOM(html, { url });
+    const dom = new this._jsdom(html, { url });
     const document = dom.window.document;
 
-    const reader = new this._Readability(document);
+    const reader = new this._readability(document);
     
     // Note: isProbablyReaderable() is not available in newer versions of Readability
     
@@ -190,7 +190,7 @@ export class ContentParserService {
    * @private
    */
   private _extractUsingHeuristics(html: string, url: string): IArticleContent {
-    const dom = new this._JSDOM(html, { url });
+    const dom = new this._jsdom(html, { url });
     const document = dom.window.document;
     
     // Remove script and style elements
@@ -276,7 +276,7 @@ export class ContentParserService {
    * @private
    */
   private _stripHtml(html: string): string {
-    const dom = new this._JSDOM(`<body>${html}</body>`);
+    const dom = new this._jsdom(`<body>${html}</body>`);
     return dom.window.document.body.textContent ?? '';
   }
 
