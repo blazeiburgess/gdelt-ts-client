@@ -105,16 +105,19 @@ describe('ContentParserService', () => {
   });
 
   describe('optional dependency errors', () => {
+    afterEach(() => {
+      jest.dontMock('jsdom');
+      jest.dontMock('@mozilla/readability');
+      jest.resetModules();
+    });
+
     it('should throw a clear error when jsdom is not installed', () => {
-      // Simulate missing jsdom by setting the cached module to undefined
-      // and replacing the internal require with one that throws
-      const testService = new ContentParserService();
-      (testService as any)._jsdomModule = undefined;
-      (testService as any)._getJSDOM = function (this: any): never {
-        throw new Error(
-          'jsdom is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
-        );
-      };
+      let testService: any;
+      jest.isolateModules(() => {
+        jest.doMock('jsdom', () => { throw new Error("Cannot find module 'jsdom'"); });
+        const mod = require('../services/content-parser');
+        testService = new mod.ContentParserService();
+      });
 
       expect(() => testService.extractMetadata('<html></html>')).toThrow(
         'jsdom is required for content parsing'
@@ -122,16 +125,15 @@ describe('ContentParserService', () => {
     });
 
     it('should throw a clear error when @mozilla/readability is not installed', () => {
-      const testService = new ContentParserService();
-      (testService as any)._readabilityModule = undefined;
-      (testService as any)._getReadability = function (this: any): never {
-        throw new Error(
-          '@mozilla/readability is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
-        );
-      };
+      let testService: any;
+      jest.isolateModules(() => {
+        jest.doMock('@mozilla/readability', () => { throw new Error("Cannot find module '@mozilla/readability'"); });
+        const mod = require('../services/content-parser');
+        testService = new mod.ContentParserService();
+      });
 
       const html = '<html><body><article><p>' + 'Long content. '.repeat(50) + '</p></article></body></html>';
-      expect(() => (testService as any)._tryReadability(html, 'https://example.com')).toThrow(
+      expect(() => testService._tryReadability(html, 'https://example.com')).toThrow(
         '@mozilla/readability is required for content parsing'
       );
     });
