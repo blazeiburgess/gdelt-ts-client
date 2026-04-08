@@ -104,6 +104,39 @@ describe('ContentParserService', () => {
     service = new ContentParserService();
   });
 
+  describe('optional dependency errors', () => {
+    it('should throw a clear error when jsdom is not installed', () => {
+      // Simulate missing jsdom by setting the cached module to undefined
+      // and replacing the internal require with one that throws
+      const testService = new ContentParserService();
+      (testService as any)._jsdomModule = undefined;
+      (testService as any)._getJSDOM = function (this: any): never {
+        throw new Error(
+          'jsdom is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
+        );
+      };
+
+      expect(() => testService.extractMetadata('<html></html>')).toThrow(
+        'jsdom is required for content parsing'
+      );
+    });
+
+    it('should throw a clear error when @mozilla/readability is not installed', () => {
+      const testService = new ContentParserService();
+      (testService as any)._readabilityModule = undefined;
+      (testService as any)._getReadability = function (this: any): never {
+        throw new Error(
+          '@mozilla/readability is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
+        );
+      };
+
+      const html = '<html><body><article><p>' + 'Long content. '.repeat(50) + '</p></article></body></html>';
+      expect(() => (testService as any)._tryReadability(html, 'https://example.com')).toThrow(
+        '@mozilla/readability is required for content parsing'
+      );
+    });
+  });
+
   describe('parseHTML', () => {
     it('should parse HTML and extract content successfully', () => {
       const url = 'https://example.com/article';
