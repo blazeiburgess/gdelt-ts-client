@@ -152,6 +152,7 @@ describe('ContentParserService', () => {
     it('should fall back to heuristics when @mozilla/readability is not installed', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
       let result: any;
+      let thrownError: Error | undefined;
       jest.isolateModules(() => {
         jest.doMock('@mozilla/readability', () => {
           const err: any = new Error("Cannot find module '@mozilla/readability'");
@@ -161,9 +162,16 @@ describe('ContentParserService', () => {
         const mod = require('../services/content-parser');
         const testService = new mod.ContentParserService();
         const html = '<html><body><article><p>' + 'Long content. '.repeat(50) + '</p></article></body></html>';
-        result = testService.parseHTML(html, 'https://example.com');
+        try {
+          result = testService.parseHTML(html, 'https://example.com');
+        } catch (e: any) {
+          thrownError = e;
+        }
       });
 
+      // Missing readability should fall back to heuristics, not throw
+      // jsdom must still be available for heuristic extraction
+      expect(thrownError).toBeUndefined();
       expect(result).toBeDefined();
       expect(result.text).toBeTruthy();
       expect(warnSpy).toHaveBeenCalled();
