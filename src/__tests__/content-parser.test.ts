@@ -106,8 +106,6 @@ describe('ContentParserService', () => {
 
   describe('optional dependency errors', () => {
     afterEach(() => {
-      jest.dontMock('jsdom');
-      jest.dontMock('@mozilla/readability');
       jest.resetModules();
     });
 
@@ -133,7 +131,7 @@ describe('ContentParserService', () => {
       });
 
       const html = '<html><body><article><p>' + 'Long content. '.repeat(50) + '</p></article></body></html>';
-      expect(() => testService._tryReadability(html, 'https://example.com')).toThrow(
+      expect(() => testService.parseHTML(html, 'https://example.com')).toThrow(
         '@mozilla/readability is required for content parsing'
       );
     });
