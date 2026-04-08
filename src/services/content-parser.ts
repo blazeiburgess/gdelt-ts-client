@@ -2,11 +2,38 @@
  * Content parser service with multi-layered content extraction
  */
 
-import { Readability } from '@mozilla/readability';
-import { JSDOM } from 'jsdom';
 import { IArticleContent, IContentMetadata } from '../interfaces/content-responses';
 
 export class ContentParserService {
+  private _jsdomModule: typeof import('jsdom') | undefined;
+  private _readabilityModule: typeof import('@mozilla/readability') | undefined;
+
+  private _getJSDOM(): typeof import('jsdom') {
+    if (!this._jsdomModule) {
+      try {
+        this._jsdomModule = require('jsdom') as typeof import('jsdom');
+      } catch {
+        throw new Error(
+          'jsdom is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
+        );
+      }
+    }
+    return this._jsdomModule;
+  }
+
+  private _getReadability(): typeof import('@mozilla/readability') {
+    if (!this._readabilityModule) {
+      try {
+        this._readabilityModule = require('@mozilla/readability') as typeof import('@mozilla/readability');
+      } catch {
+        throw new Error(
+          '@mozilla/readability is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
+        );
+      }
+    }
+    return this._readabilityModule;
+  }
+
   /**
    * Parse HTML content and extract clean article text
    * @param html - Raw HTML content
@@ -57,6 +84,7 @@ export class ContentParserService {
    * @returns Content metadata
    */
   public extractMetadata(html: string): IContentMetadata {
+    const { JSDOM } = this._getJSDOM();
     const dom = new JSDOM(html);
     const document = dom.window.document;
     
@@ -116,10 +144,12 @@ export class ContentParserService {
    * @private
    */
   private _tryReadability(html: string, url: string): IArticleContent | null {
+    const { JSDOM } = this._getJSDOM();
+    const { Readability: readabilityClass } = this._getReadability();
     const dom = new JSDOM(html, { url });
     const document = dom.window.document;
-    
-    const reader = new Readability(document);
+
+    const reader = new readabilityClass(document);
     
     // Note: isProbablyReaderable() is not available in newer versions of Readability
     
@@ -154,6 +184,7 @@ export class ContentParserService {
    * @private
    */
   private _extractUsingHeuristics(html: string, url: string): IArticleContent {
+    const { JSDOM } = this._getJSDOM();
     const dom = new JSDOM(html, { url });
     const document = dom.window.document;
     
@@ -240,7 +271,7 @@ export class ContentParserService {
    * @private
    */
   private _stripHtml(html: string): string {
-    // Create a new JSDOM instance with the HTML content
+    const { JSDOM } = this._getJSDOM();
     const dom = new JSDOM(`<body>${html}</body>`);
     return dom.window.document.body.textContent ?? '';
   }
