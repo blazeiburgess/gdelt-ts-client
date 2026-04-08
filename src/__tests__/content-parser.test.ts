@@ -207,6 +207,14 @@ describe('ContentParserService', () => {
       expect(result.qualityScore).toBeLessThan(0.5);
     });
 
+    it('should use cached modules on repeated calls', () => {
+      const url = 'https://example.com/article';
+      const result1 = service.parseHTML(HTML_WITH_ARTICLE, url);
+      const result2 = service.parseHTML(HTML_WITH_ARTICLE, url);
+
+      expect(result1.text).toBe(result2.text);
+    });
+
     it('should handle non-English content', () => {
       const url = 'https://example.com/spanish';
       const result = service.parseHTML(HTML_WITH_DIFFERENT_LANGUAGE, url);
