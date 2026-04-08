@@ -106,34 +106,44 @@ describe('ContentParserService', () => {
 
   describe('optional dependency errors', () => {
     afterEach(() => {
+      jest.unmock('jsdom');
+      jest.unmock('@mozilla/readability');
       jest.resetModules();
     });
 
     it('should throw a clear error when jsdom is not installed', () => {
-      let testService: any;
+      let thrownError: Error | undefined;
       jest.isolateModules(() => {
         jest.doMock('jsdom', () => { throw new Error("Cannot find module 'jsdom'"); });
         const mod = require('../services/content-parser');
-        testService = new mod.ContentParserService();
+        const testService = new mod.ContentParserService();
+        try {
+          testService.extractMetadata('<html></html>');
+        } catch (e: any) {
+          thrownError = e;
+        }
       });
 
-      expect(() => testService.extractMetadata('<html></html>')).toThrow(
-        'jsdom is required for content parsing'
-      );
+      expect(thrownError).toBeDefined();
+      expect(thrownError!.message).toContain('jsdom is required for content parsing');
     });
 
     it('should throw a clear error when @mozilla/readability is not installed', () => {
-      let testService: any;
+      let thrownError: Error | undefined;
       jest.isolateModules(() => {
         jest.doMock('@mozilla/readability', () => { throw new Error("Cannot find module '@mozilla/readability'"); });
         const mod = require('../services/content-parser');
-        testService = new mod.ContentParserService();
+        const testService = new mod.ContentParserService();
+        const html = '<html><body><article><p>' + 'Long content. '.repeat(50) + '</p></article></body></html>';
+        try {
+          testService.parseHTML(html, 'https://example.com');
+        } catch (e: any) {
+          thrownError = e;
+        }
       });
 
-      const html = '<html><body><article><p>' + 'Long content. '.repeat(50) + '</p></article></body></html>';
-      expect(() => testService.parseHTML(html, 'https://example.com')).toThrow(
-        '@mozilla/readability is required for content parsing'
-      );
+      expect(thrownError).toBeDefined();
+      expect(thrownError!.message).toContain('@mozilla/readability is required for content parsing');
     });
   });
 
