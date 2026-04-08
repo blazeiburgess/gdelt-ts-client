@@ -4,34 +4,41 @@
 
 import { IArticleContent, IContentMetadata } from '../interfaces/content-responses';
 
-export class ContentParserService {
-  private _jsdomModule: typeof import('jsdom') | undefined;
-  private _readabilityModule: typeof import('@mozilla/readability') | undefined;
+class MissingDependencyError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = 'MissingDependencyError';
+  }
+}
 
-  private _getJSDOM(): typeof import('jsdom') {
-    if (!this._jsdomModule) {
+export class ContentParserService {
+  private _cachedJSDOM: typeof import('jsdom').JSDOM | undefined;
+  private _cachedReadability: typeof import('@mozilla/readability').Readability | undefined;
+
+  private get _JSDOM(): typeof import('jsdom').JSDOM {
+    if (!this._cachedJSDOM) {
       try {
-        this._jsdomModule = require('jsdom') as typeof import('jsdom');
+        this._cachedJSDOM = (require('jsdom') as typeof import('jsdom')).JSDOM;
       } catch {
-        throw new Error(
+        throw new MissingDependencyError(
           'jsdom is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
         );
       }
     }
-    return this._jsdomModule;
+    return this._cachedJSDOM;
   }
 
-  private _getReadability(): typeof import('@mozilla/readability') {
-    if (!this._readabilityModule) {
+  private get _Readability(): typeof import('@mozilla/readability').Readability {
+    if (!this._cachedReadability) {
       try {
-        this._readabilityModule = require('@mozilla/readability') as typeof import('@mozilla/readability');
+        this._cachedReadability = (require('@mozilla/readability') as typeof import('@mozilla/readability')).Readability;
       } catch {
-        throw new Error(
+        throw new MissingDependencyError(
           '@mozilla/readability is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
         );
       }
     }
-    return this._readabilityModule;
+    return this._cachedReadability;
   }
 
   /**
@@ -48,7 +55,7 @@ export class ContentParserService {
         return readabilityResult;
       }
     } catch (error) {
-      if (error instanceof Error && error.message.includes('Install it with:')) {
+      if (error instanceof MissingDependencyError) {
         throw error;
       }
       console.warn('Readability extraction failed:', error);
@@ -87,8 +94,7 @@ export class ContentParserService {
    * @returns Content metadata
    */
   public extractMetadata(html: string): IContentMetadata {
-    const { JSDOM } = this._getJSDOM();
-    const dom = new JSDOM(html);
+    const dom = new this._JSDOM(html);
     const document = dom.window.document;
     
     const openGraph: Record<string, string> = {};
@@ -147,12 +153,10 @@ export class ContentParserService {
    * @private
    */
   private _tryReadability(html: string, url: string): IArticleContent | null {
-    const { JSDOM } = this._getJSDOM();
-    const { Readability: readabilityClass } = this._getReadability();
-    const dom = new JSDOM(html, { url });
+    const dom = new this._JSDOM(html, { url });
     const document = dom.window.document;
 
-    const reader = new readabilityClass(document);
+    const reader = new this._Readability(document);
     
     // Note: isProbablyReaderable() is not available in newer versions of Readability
     
@@ -178,7 +182,6 @@ export class ContentParserService {
     };
   }
 
-
   /**
    * Extract content using heuristic methods
    * @param html - Raw HTML content
@@ -187,8 +190,7 @@ export class ContentParserService {
    * @private
    */
   private _extractUsingHeuristics(html: string, url: string): IArticleContent {
-    const { JSDOM } = this._getJSDOM();
-    const dom = new JSDOM(html, { url });
+    const dom = new this._JSDOM(html, { url });
     const document = dom.window.document;
     
     // Remove script and style elements
@@ -274,8 +276,7 @@ export class ContentParserService {
    * @private
    */
   private _stripHtml(html: string): string {
-    const { JSDOM } = this._getJSDOM();
-    const dom = new JSDOM(`<body>${html}</body>`);
+    const dom = new this._JSDOM(`<body>${html}</body>`);
     return dom.window.document.body.textContent ?? '';
   }
 
