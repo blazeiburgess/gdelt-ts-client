@@ -686,6 +686,7 @@ describe('GdeltClient', () => {
       (rateLimitError as unknown as { response: { status: number; statusText: string; headers: Record<string, string> } }).response = {
         status: 429,
         statusText: 'Too Many Requests',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         headers: { 'retry-after': '1' }
       };
 
@@ -729,6 +730,7 @@ describe('GdeltClient', () => {
       (rateLimitError as unknown as { response: { status: number; statusText: string; headers: Record<string, string> } }).response = {
         status: 429,
         statusText: 'Too Many Requests',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         headers: { 'retry-after': '1' }
       };
 
