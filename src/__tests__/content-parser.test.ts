@@ -612,10 +612,16 @@ describe('ContentParserService', () => {
   });
 
   describe('_tryReadability', () => {
+    it('should return null when Readability.parse() returns null', () => {
+      const html = '<html><body></body></html>';
+      const result = (service as any)._tryReadability(html, 'https://example.com');
+      expect(result).toBeNull();
+    });
+
     it('should return null for very short content', () => {
       const html = '<html><body><p>Too short</p></body></html>';
       const url = 'https://example.com/short';
-      
+
       const result = (service as any)._tryReadability(html, url);
       expect(result).toBeNull();
     });
