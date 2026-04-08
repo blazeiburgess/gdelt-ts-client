@@ -114,7 +114,11 @@ describe('ContentParserService', () => {
     it('should throw a clear error when jsdom is not installed', () => {
       let thrownError: Error | undefined;
       jest.isolateModules(() => {
-        jest.doMock('jsdom', () => { throw new Error("Cannot find module 'jsdom'"); });
+        jest.doMock('jsdom', () => {
+          const err: any = new Error("Cannot find module 'jsdom'");
+          err.code = 'MODULE_NOT_FOUND';
+          throw err;
+        });
         const mod = require('../services/content-parser');
         const testService = new mod.ContentParserService();
         try {
@@ -128,22 +132,42 @@ describe('ContentParserService', () => {
       expect(thrownError!.message).toContain('jsdom is required for content parsing');
     });
 
-    it('should throw a clear error when @mozilla/readability is not installed', () => {
+    it('should re-throw non-module-not-found errors from jsdom', () => {
       let thrownError: Error | undefined;
       jest.isolateModules(() => {
-        jest.doMock('@mozilla/readability', () => { throw new Error("Cannot find module '@mozilla/readability'"); });
+        jest.doMock('jsdom', () => { throw new Error('ERR_REQUIRE_ESM: jsdom is ESM-only'); });
         const mod = require('../services/content-parser');
         const testService = new mod.ContentParserService();
-        const html = '<html><body><article><p>' + 'Long content. '.repeat(50) + '</p></article></body></html>';
         try {
-          testService.parseHTML(html, 'https://example.com');
+          testService.extractMetadata('<html></html>');
         } catch (e: any) {
           thrownError = e;
         }
       });
 
       expect(thrownError).toBeDefined();
-      expect(thrownError!.message).toContain('@mozilla/readability is required for content parsing');
+      expect(thrownError!.message).toContain('ERR_REQUIRE_ESM');
+    });
+
+    it('should fall back to heuristics when @mozilla/readability is not installed', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      let result: any;
+      jest.isolateModules(() => {
+        jest.doMock('@mozilla/readability', () => {
+          const err: any = new Error("Cannot find module '@mozilla/readability'");
+          err.code = 'MODULE_NOT_FOUND';
+          throw err;
+        });
+        const mod = require('../services/content-parser');
+        const testService = new mod.ContentParserService();
+        const html = '<html><body><article><p>' + 'Long content. '.repeat(50) + '</p></article></body></html>';
+        result = testService.parseHTML(html, 'https://example.com');
+      });
+
+      expect(result).toBeDefined();
+      expect(result.text).toBeTruthy();
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
     });
   });
 
