@@ -338,14 +338,17 @@ export class GdeltClient {
           params: queryParams
         });
       } catch (error) {
-        // Don't retry 4xx client errors - they won't resolve with retry
-        const httpError = error as { response?: { status?: number } };
+        const httpError = error as { response?: { status?: number; headers?: Record<string, string> } };
         const statusCode = httpError.response?.status;
-        const isClientError = statusCode !== undefined && statusCode >= 400 && statusCode < 500;
+        const isRateLimited = statusCode === 429;
+        const isClientError = statusCode !== undefined && statusCode >= 400 && statusCode < 500 && !isRateLimited;
 
         if (this._retry && retries < this._maxRetries && !isClientError) {
           retries++;
-          await new Promise(resolve => setTimeout(resolve, this._retryDelay));
+          const backoff = isRateLimited
+            ? this._getRateLimitDelay(retries, httpError.response?.headers)
+            : this._retryDelay;
+          await new Promise(resolve => setTimeout(resolve, backoff));
           return makeFetchRequest();
         }
         throw error;
@@ -363,6 +366,24 @@ export class GdeltClient {
     const transformedData = this._transformResponse<T>(response.data, params.mode);
 
     return transformedData;
+  }
+
+  /**
+   * Calculate delay for rate-limited retries, honoring Retry-After header if present
+   * @param attempt - The current retry attempt number (1-based)
+   * @param headers - Response headers from the 429 response
+   * @returns Delay in milliseconds
+   * @private
+   */
+  private _getRateLimitDelay(attempt: number, headers?: Record<string, string>): number {
+    const retryAfter = headers?.['retry-after'];
+    if (retryAfter) {
+      const seconds = Number(retryAfter);
+      if (!Number.isNaN(seconds)) {
+        return seconds * 1000;
+      }
+    }
+    return this._retryDelay * Math.pow(2, attempt - 1);
   }
 
   /**

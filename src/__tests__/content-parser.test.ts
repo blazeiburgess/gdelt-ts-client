@@ -104,7 +104,96 @@ describe('ContentParserService', () => {
     service = new ContentParserService();
   });
 
+  describe('optional dependency errors', () => {
+    afterEach(() => {
+      jest.unmock('jsdom');
+      jest.unmock('@mozilla/readability');
+      jest.resetModules();
+    });
+
+    it('should throw a clear error when jsdom is not installed', () => {
+      let thrownError: Error | undefined;
+      jest.isolateModules(() => {
+        jest.doMock('jsdom', () => {
+          const err: any = new Error("Cannot find module 'jsdom'");
+          err.code = 'MODULE_NOT_FOUND';
+          throw err;
+        });
+        const mod = require('../services/content-parser');
+        const testService = new mod.ContentParserService();
+        try {
+          testService.extractMetadata('<html></html>');
+        } catch (e: any) {
+          thrownError = e;
+        }
+      });
+
+      expect(thrownError).toBeDefined();
+      expect(thrownError!.message).toContain('jsdom is required for content parsing');
+    });
+
+    it('should re-throw non-module-not-found errors from jsdom', () => {
+      let thrownError: Error | undefined;
+      jest.isolateModules(() => {
+        jest.doMock('jsdom', () => { throw new Error('ERR_REQUIRE_ESM: jsdom is ESM-only'); });
+        const mod = require('../services/content-parser');
+        const testService = new mod.ContentParserService();
+        try {
+          testService.extractMetadata('<html></html>');
+        } catch (e: any) {
+          thrownError = e;
+        }
+      });
+
+      expect(thrownError).toBeDefined();
+      expect(thrownError!.message).toContain('ERR_REQUIRE_ESM');
+    });
+
+    it('should fall back to heuristics when @mozilla/readability is not installed', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      let result: any;
+      let thrownError: Error | undefined;
+      jest.isolateModules(() => {
+        jest.doMock('@mozilla/readability', () => {
+          const err: any = new Error("Cannot find module '@mozilla/readability'");
+          err.code = 'MODULE_NOT_FOUND';
+          throw err;
+        });
+        const mod = require('../services/content-parser');
+        const testService = new mod.ContentParserService();
+        const html = '<html><body><article><p>' + 'Long content. '.repeat(50) + '</p></article></body></html>';
+        try {
+          result = testService.parseHTML(html, 'https://example.com');
+        } catch (e: any) {
+          thrownError = e;
+        }
+      });
+
+      // Missing readability should fall back to heuristics, not throw
+      // jsdom must still be available for heuristic extraction
+      expect(thrownError).toBeUndefined();
+      expect(result).toBeDefined();
+      expect(result.text).toBeTruthy();
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+  });
+
   describe('parseHTML', () => {
+    it('should fall back to heuristics when readability throws a non-dependency error', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      jest.spyOn(service as any, '_tryReadability').mockImplementation(() => {
+        throw new Error('unexpected parse failure');
+      });
+
+      const result = service.parseHTML(HTML_WITH_ARTICLE, 'https://example.com/article');
+
+      expect(warnSpy).toHaveBeenCalledWith('Readability extraction failed:', expect.any(Error));
+      expect(result).toBeDefined();
+      expect(result.text).toBeTruthy();
+      warnSpy.mockRestore();
+    });
+
     it('should parse HTML and extract content successfully', () => {
       const url = 'https://example.com/article';
       const result = service.parseHTML(HTML_WITH_ARTICLE, url);
@@ -148,6 +237,14 @@ describe('ContentParserService', () => {
       expect(result.text).toBeDefined();
       expect(result.wordCount).toBeLessThan(10);
       expect(result.qualityScore).toBeLessThan(0.5);
+    });
+
+    it('should use cached modules on repeated calls', () => {
+      const url = 'https://example.com/article';
+      const result1 = service.parseHTML(HTML_WITH_ARTICLE, url);
+      const result2 = service.parseHTML(HTML_WITH_ARTICLE, url);
+
+      expect(result1.text).toBe(result2.text);
     });
 
     it('should handle non-English content', () => {
@@ -231,6 +328,20 @@ describe('ContentParserService', () => {
       expect(Object.keys(metadata.twitterCard ?? {})).toHaveLength(0);
       expect(Object.keys(metadata.article ?? {})).toHaveLength(0);
       expect(metadata.canonicalUrl).toBe('');
+    });
+
+    it('should skip meta tags with missing property or content attributes', () => {
+      const html = `<html><head>
+        <meta property="og:title">
+        <meta content="value without property">
+        <meta name="twitter:card">
+        <meta property="article:author">
+      </head><body></body></html>`;
+      const metadata = service.extractMetadata(html);
+
+      expect(Object.keys(metadata.openGraph ?? {})).toHaveLength(0);
+      expect(Object.keys(metadata.twitterCard ?? {})).toHaveLength(0);
+      expect(Object.keys(metadata.article ?? {})).toHaveLength(0);
     });
   });
 
@@ -533,10 +644,16 @@ describe('ContentParserService', () => {
   });
 
   describe('_tryReadability', () => {
+    it('should return null when Readability.parse() returns null', () => {
+      const html = '<html><body></body></html>';
+      const result = (service as any)._tryReadability(html, 'https://example.com');
+      expect(result).toBeNull();
+    });
+
     it('should return null for very short content', () => {
       const html = '<html><body><p>Too short</p></body></html>';
       const url = 'https://example.com/short';
-      
+
       const result = (service as any)._tryReadability(html, url);
       expect(result).toBeNull();
     });

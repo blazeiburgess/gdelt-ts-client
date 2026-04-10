@@ -2,11 +2,57 @@
  * Content parser service with multi-layered content extraction
  */
 
-import { Readability } from '@mozilla/readability';
-import { JSDOM } from 'jsdom';
 import { IArticleContent, IContentMetadata } from '../interfaces/content-responses';
 
+class MissingDependencyError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = 'MissingDependencyError';
+  }
+}
+
+// Minimal interfaces to avoid leaking jsdom/@mozilla/readability types into .d.ts
+type JSDOMConstructor = new (html: string, options?: { url?: string }) => { window: { document: Document } };
+type ReadabilityConstructor = new (document: Document) => { parse(): { title: string; content: string; textContent: string; excerpt: string; byline: string; length: number; siteName: string } | null };
+
 export class ContentParserService {
+  private _cachedJSDOM: JSDOMConstructor | undefined;
+  private _cachedReadability: ReadabilityConstructor | undefined;
+
+  private get _jsdom(): JSDOMConstructor {
+    if (!this._cachedJSDOM) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- matches external module export name
+        this._cachedJSDOM = (require('jsdom') as { JSDOM: JSDOMConstructor }).JSDOM;
+      } catch (error: unknown) {
+        if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'MODULE_NOT_FOUND') {
+          throw new MissingDependencyError(
+            'jsdom is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
+          );
+        }
+        throw error;
+      }
+    }
+    return this._cachedJSDOM;
+  }
+
+  private get _readability(): ReadabilityConstructor {
+    if (!this._cachedReadability) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- matches external module export name
+        this._cachedReadability = (require('@mozilla/readability') as { Readability: ReadabilityConstructor }).Readability;
+      } catch (error: unknown) {
+        if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'MODULE_NOT_FOUND') {
+          throw new MissingDependencyError(
+            '@mozilla/readability is required for content parsing. Install it with: npm install jsdom @mozilla/readability'
+          );
+        }
+        throw error;
+      }
+    }
+    return this._cachedReadability;
+  }
+
   /**
    * Parse HTML content and extract clean article text
    * @param html - Raw HTML content
@@ -21,6 +67,9 @@ export class ContentParserService {
         return readabilityResult;
       }
     } catch (error) {
+      if (error instanceof MissingDependencyError && error.message.startsWith('jsdom')) {
+        throw error;
+      }
       console.warn('Readability extraction failed:', error);
     }
 
@@ -57,7 +106,7 @@ export class ContentParserService {
    * @returns Content metadata
    */
   public extractMetadata(html: string): IContentMetadata {
-    const dom = new JSDOM(html);
+    const dom = new this._jsdom(html);
     const document = dom.window.document;
     
     const openGraph: Record<string, string> = {};
@@ -116,10 +165,10 @@ export class ContentParserService {
    * @private
    */
   private _tryReadability(html: string, url: string): IArticleContent | null {
-    const dom = new JSDOM(html, { url });
+    const dom = new this._jsdom(html, { url });
     const document = dom.window.document;
-    
-    const reader = new Readability(document);
+
+    const reader = new this._readability(document);
     
     // Note: isProbablyReaderable() is not available in newer versions of Readability
     
@@ -145,7 +194,6 @@ export class ContentParserService {
     };
   }
 
-
   /**
    * Extract content using heuristic methods
    * @param html - Raw HTML content
@@ -154,7 +202,7 @@ export class ContentParserService {
    * @private
    */
   private _extractUsingHeuristics(html: string, url: string): IArticleContent {
-    const dom = new JSDOM(html, { url });
+    const dom = new this._jsdom(html, { url });
     const document = dom.window.document;
     
     // Remove script and style elements
@@ -240,8 +288,7 @@ export class ContentParserService {
    * @private
    */
   private _stripHtml(html: string): string {
-    // Create a new JSDOM instance with the HTML content
-    const dom = new JSDOM(`<body>${html}</body>`);
+    const dom = new this._jsdom(`<body>${html}</body>`);
     return dom.window.document.body.textContent ?? '';
   }
 
