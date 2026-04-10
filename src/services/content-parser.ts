@@ -61,7 +61,7 @@ export class ContentParserService {
         return readabilityResult;
       }
     } catch (error) {
-      if (error instanceof MissingDependencyError && error.message.includes('jsdom')) {
+      if (error instanceof MissingDependencyError && error.message.startsWith('jsdom')) {
         throw error;
       }
       console.warn('Readability extraction failed:', error);
