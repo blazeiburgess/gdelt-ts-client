@@ -22,6 +22,7 @@ export class ContentParserService {
   private get _jsdom(): JSDOMConstructor {
     if (!this._cachedJSDOM) {
       try {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- matches external module export name
         this._cachedJSDOM = (require('jsdom') as { JSDOM: JSDOMConstructor }).JSDOM;
       } catch (error: unknown) {
         if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'MODULE_NOT_FOUND') {
@@ -38,6 +39,7 @@ export class ContentParserService {
   private get _readability(): ReadabilityConstructor {
     if (!this._cachedReadability) {
       try {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- matches external module export name
         this._cachedReadability = (require('@mozilla/readability') as { Readability: ReadabilityConstructor }).Readability;
       } catch (error: unknown) {
         if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'MODULE_NOT_FOUND') {
