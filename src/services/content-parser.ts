@@ -11,14 +11,18 @@ class MissingDependencyError extends Error {
   }
 }
 
-export class ContentParserService {
-  private _cachedJSDOM: typeof import('jsdom').JSDOM | undefined;
-  private _cachedReadability: typeof import('@mozilla/readability').Readability | undefined;
+// Minimal interfaces to avoid leaking jsdom/@mozilla/readability types into .d.ts
+type JSDOMConstructor = new (html: string, options?: { url?: string }) => { window: { document: Document } };
+type ReadabilityConstructor = new (document: Document) => { parse(): { title: string; content: string; textContent: string; excerpt: string; byline: string; length: number; siteName: string } | null };
 
-  private get _jsdom(): typeof import('jsdom').JSDOM {
+export class ContentParserService {
+  private _cachedJSDOM: JSDOMConstructor | undefined;
+  private _cachedReadability: ReadabilityConstructor | undefined;
+
+  private get _jsdom(): JSDOMConstructor {
     if (!this._cachedJSDOM) {
       try {
-        this._cachedJSDOM = (require('jsdom') as typeof import('jsdom')).JSDOM;
+        this._cachedJSDOM = (require('jsdom') as { JSDOM: JSDOMConstructor }).JSDOM;
       } catch (error: unknown) {
         if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'MODULE_NOT_FOUND') {
           throw new MissingDependencyError(
@@ -31,10 +35,10 @@ export class ContentParserService {
     return this._cachedJSDOM;
   }
 
-  private get _readability(): typeof import('@mozilla/readability').Readability {
+  private get _readability(): ReadabilityConstructor {
     if (!this._cachedReadability) {
       try {
-        this._cachedReadability = (require('@mozilla/readability') as typeof import('@mozilla/readability')).Readability;
+        this._cachedReadability = (require('@mozilla/readability') as { Readability: ReadabilityConstructor }).Readability;
       } catch (error: unknown) {
         if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'MODULE_NOT_FOUND') {
           throw new MissingDependencyError(
